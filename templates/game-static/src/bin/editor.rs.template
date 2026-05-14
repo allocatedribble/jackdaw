@@ -5,6 +5,8 @@
 //!
 //! See `src/main.rs` for the standalone runner.
 
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+
 use std::path::PathBuf;
 
 use bevy::{
@@ -41,6 +43,16 @@ fn main() -> AppExit {
     app.set_error_handler(bevy::ecs::error::error)
         .add_plugins(
             DefaultPlugins
+                .build()
+                .disable::<bevy::input_focus::InputDispatchPlugin>()
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Jackdaw".to_string(),
+                        decorations: false,
+                        ..default()
+                    }),
+                    ..default()
+                })
                 .set(AssetPlugin {
                     file_path: asset_root,
                     ..default()

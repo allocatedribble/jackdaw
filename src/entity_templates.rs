@@ -8,6 +8,7 @@ use bevy::{
     prelude::*,
     reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer},
     tasks::IoTaskPool,
+    world_serialization::WorldAssetRoot as SceneRoot,
 };
 use jackdaw_jsn::format::{JsnEntity, JsnScene};
 use serde::de::DeserializeSeed;

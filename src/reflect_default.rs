@@ -17,10 +17,13 @@
 
 use std::any::TypeId;
 
-use bevy::reflect::std_traits::ReflectDefault;
 use bevy::reflect::{
-    DynamicEnum, DynamicStruct, DynamicTuple, DynamicTupleStruct, DynamicVariant, PartialReflect,
-    Reflect, TypeInfo, TypeRegistry, VariantInfo,
+    PartialReflect, Reflect, TypeInfo, TypeRegistry,
+    enums::{DynamicEnum, DynamicVariant, VariantInfo},
+    std_traits::ReflectDefault,
+    structs::DynamicStruct,
+    tuple::DynamicTuple,
+    tuple_struct::DynamicTupleStruct,
 };
 
 /// Default-instance for `type_id`. Uses `ReflectDefault` when

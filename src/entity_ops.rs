@@ -1,9 +1,13 @@
 use std::path::Path;
 
 use bevy::{
-    ecs::system::{SystemParam, SystemState},
+    ecs::{
+        reflect::AppTypeRegistry,
+        system::{SystemParam, SystemState},
+    },
     gltf::GltfAssetLabel,
     prelude::*,
+    world_serialization::{DynamicWorldBuilder, WorldAssetRoot as SceneRoot},
 };
 
 use crate::{
@@ -151,10 +155,7 @@ pub fn create_entity(
             .spawn((
                 Name::new("Point Light"),
                 SceneLight,
-                PointLight {
-                    shadows_enabled: true,
-                    ..default()
-                },
+                PointLight::default(),
                 Transform::from_xyz(0.0, 3.0, 0.0),
             ))
             .id(),
@@ -162,10 +163,7 @@ pub fn create_entity(
             .spawn((
                 Name::new("Directional Light"),
                 SceneLight,
-                DirectionalLight {
-                    shadows_enabled: true,
-                    ..default()
-                },
+                DirectionalLight::default(),
                 Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, -0.8, 0.4, 0.0)),
             ))
             .id(),
@@ -173,10 +171,7 @@ pub fn create_entity(
             .spawn((
                 Name::new("Spot Light"),
                 SceneLight,
-                SpotLight {
-                    shadows_enabled: true,
-                    ..default()
-                },
+                SpotLight::default(),
                 Transform::from_xyz(0.0, 3.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
             ))
             .id(),
@@ -228,7 +223,9 @@ pub fn create_entity_in_world(world: &mut World, template: EntityTemplate) {
     let label = format!("Add {}", template.label());
     let spawn_fn = Box::new(move |world: &mut World| -> Entity {
         let mut system_state: SystemState<(Commands, ResMut<Selection>)> = SystemState::new(world);
-        let (mut commands, mut selection) = system_state.get_mut(world);
+        let (mut commands, mut selection) = system_state
+            .get_mut(world)
+            .expect("create entity system state should be available");
         let entity = create_entity(&mut commands, template, &mut selection);
         system_state.apply(world);
         crate::scene_io::register_entity_in_ast(world, entity);
@@ -276,7 +273,9 @@ pub fn spawn_gltf(
 pub fn spawn_gltf_in_world(world: &mut World, path: &str, position: Vec3) {
     let mut system_state: SystemState<(Commands, Res<AssetServer>, ResMut<Selection>)> =
         SystemState::new(world);
-    let (mut commands, asset_server, mut selection) = system_state.get_mut(world);
+    let (mut commands, asset_server, mut selection) = system_state
+        .get_mut(world)
+        .expect("spawn GLTF system state should be available");
     spawn_gltf(&mut commands, &asset_server, path, position, &mut selection);
     system_state.apply(world);
 }
@@ -355,9 +354,13 @@ pub fn duplicate_selected(world: &mut World) {
         // Snapshot the entity (and descendants) via DynamicSceneBuilder
         let mut snapshot_entities = Vec::new();
         crate::commands::collect_entity_ids(world, entity, &mut snapshot_entities);
-        let scene = DynamicSceneBuilder::from_world(world)
-            .extract_entities(snapshot_entities.into_iter())
-            .build();
+        let scene = {
+            let registry = world.resource::<AppTypeRegistry>();
+            let registry = registry.read();
+            DynamicWorldBuilder::from_world(world, &registry)
+                .extract_entities(snapshot_entities.into_iter())
+                .build()
+        };
 
         // Write the snapshot back to create a clone
         let mut entity_map = Default::default();
@@ -792,8 +795,10 @@ fn unhide_all_entities(world: &mut World, scene_entities: &mut SystemState<Scene
 
     // Only unhide top-level scene entities (with Name), matching hide_unselected logic.
     let hidden: Vec<Entity> = {
+        let Ok(scene_entities) = scene_entities.get(world) else {
+            return;
+        };
         scene_entities
-            .get(world)
             .iter()
             .filter(|(_, vis)| **vis == Visibility::Hidden)
             .map(|(e, _)| e)
@@ -828,8 +833,10 @@ fn hide_all_entities(world: &mut World, scene_entities: &mut SystemState<SceneEn
 
     // Hide all top-level scene entities (same filter as H, applied to everything).
     let to_hide: Vec<(Entity, Visibility)> = {
+        let Ok(scene_entities) = scene_entities.get(world) else {
+            return;
+        };
         scene_entities
-            .get(world)
             .iter()
             .filter(|(_, vis)| **vis != Visibility::Hidden)
             .map(|(e, vis)| (e, *vis))
@@ -1006,7 +1013,7 @@ fn can_act_on_entities(
     draw_state: Res<crate::draw_brush::DrawBrushState>,
     edit_mode: Res<crate::brush::EditMode>,
 ) -> bool {
-    if input_focus.0.is_some() || active.is_modal_running() || modal.active.is_some() {
+    if input_focus.get().is_some() || active.is_modal_running() || modal.active.is_some() {
         return false;
     }
     if draw_state.active.is_some() {
@@ -1202,7 +1209,9 @@ pub(crate) fn entity_add_navmesh(
         crate::spawn_undoable(world, "Add Navmesh Region", |world| {
             let mut system_state: SystemState<(Commands, ResMut<Selection>)> =
                 SystemState::new(world);
-            let (mut commands, mut selection) = system_state.get_mut(world);
+            let (mut commands, mut selection) = system_state
+                .get_mut(world)
+                .expect("navmesh spawn system state should be available");
             let entity = crate::navmesh::spawn_navmesh_entity(&mut commands);
             selection.select_single(&mut commands, entity);
             system_state.apply(world);
@@ -1222,7 +1231,9 @@ pub(crate) fn entity_add_terrain(
         crate::spawn_undoable(world, "Add Terrain", |world| {
             let mut system_state: SystemState<(Commands, ResMut<Selection>)> =
                 SystemState::new(world);
-            let (mut commands, mut selection) = system_state.get_mut(world);
+            let (mut commands, mut selection) = system_state
+                .get_mut(world)
+                .expect("terrain spawn system state should be available");
             let entity = crate::terrain::spawn_terrain_entity(&mut commands);
             selection.select_single(&mut commands, entity);
             system_state.apply(world);

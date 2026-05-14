@@ -276,7 +276,7 @@ fn ensure_measure_label(
             crate::NonSerializable,
             Text::new(""),
             TextFont {
-                font_size: tokens::TEXT_SIZE,
+                font_size: (tokens::TEXT_SIZE).into(),
                 ..default()
             },
             TextColor(default_style::MEASURE_TOOL_LABEL),

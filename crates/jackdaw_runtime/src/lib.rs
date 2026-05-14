@@ -8,10 +8,10 @@ use bevy::asset::{
 };
 use bevy::ecs::reflect::AppTypeRegistry;
 use bevy::image::ImageLoaderSettings;
-use bevy::prelude::*;
+use bevy::{prelude::*, world_serialization::{DynamicWorld, DynamicWorldRoot}};
 use bevy::reflect::serde::{ReflectDeserializerProcessor, TypedReflectDeserializer};
 use bevy::reflect::{TypeRegistration, TypeRegistry};
-use jackdaw_jsn::JsnPlugin;
+use jackdaw_bsn::JackdawBsnPlugin;
 use jackdaw_jsn::format::{JsnAssets, JsnCatalog, JsnScene, JsnSceneV2};
 use serde::Deserializer;
 use serde::de::{DeserializeSeed, Visitor};
@@ -32,11 +32,11 @@ pub struct JackdawPlugin;
 
 impl Plugin for JackdawPlugin {
     fn build(&self, app: &mut App) {
-        // `JsnPlugin` registers every scene type for reflection
-        // and installs `MeshRebuildPlugin` (which embeds the
-        // bundled grid texture used as the brush fallback
-        // material).
-        app.add_plugins(JsnPlugin::default());
+        // `JackdawBsnPlugin` registers every scene type for reflection,
+        // installs the `.bsn` world loader, and keeps the runtime brush mesh
+        // rebuild path available without installing the legacy JSN asset
+        // loader.
+        app.add_plugins(JackdawBsnPlugin::default());
 
         app.init_asset::<JackdawScene>()
             .init_asset_loader::<JackdawSceneLoader>()
@@ -382,8 +382,8 @@ fn spawn_scene_entities(
         };
         let label = format!("Scene{scene_index}");
         let full_path = format!("{resolved}#{label}");
-        let scene_handle: Handle<Scene> = asset_server.load(full_path);
-        world.entity_mut(entity).insert(SceneRoot(scene_handle));
+        let scene_handle: Handle<DynamicWorld> = asset_server.load(full_path);
+        world.entity_mut(entity).insert(DynamicWorldRoot(scene_handle));
     }
 }
 

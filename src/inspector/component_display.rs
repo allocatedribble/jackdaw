@@ -131,8 +131,8 @@ pub(crate) fn build_inspector_displays(
                     "{selection_count} entities selected, edits apply to all"
                 )),
                 TextFont {
-                    font: editor_font.0.clone(),
-                    font_size: tokens::FONT_SM,
+                    font: (editor_font.0.clone()).into(),
+                    font_size: (tokens::FONT_SM).into(),
                     ..Default::default()
                 },
                 TextColor(tokens::TEXT_PRIMARY),
@@ -284,8 +284,8 @@ pub(crate) fn build_inspector_displays(
                     (
                         Text::new(String::from(group_icon.unicode())),
                         TextFont {
-                            font: icon_font.0.clone(),
-                            font_size: tokens::TEXT_SIZE,
+                            font: (icon_font.0.clone()).into(),
+                            font_size: (tokens::TEXT_SIZE).into(),
                             ..Default::default()
                         },
                         TextColor(tokens::TEXT_SECONDARY),
@@ -293,8 +293,8 @@ pub(crate) fn build_inspector_displays(
                     (
                         Text::new(module_group.clone()),
                         TextFont {
-                            font: editor_font.0.clone(),
-                            font_size: tokens::FONT_SM,
+                            font: (editor_font.0.clone()).into(),
+                            font_size: (tokens::FONT_SM).into(),
                             weight: FontWeight::MEDIUM,
                             ..Default::default()
                         },
@@ -423,7 +423,7 @@ pub(crate) fn build_inspector_displays(
         commands.spawn((
             Text::new("(read-only)"),
             TextFont {
-                font_size: tokens::FONT_SM,
+                font_size: (tokens::FONT_SM).into(),
                 ..Default::default()
             },
             TextColor(tokens::TEXT_SECONDARY),
@@ -687,8 +687,8 @@ pub(crate) fn spawn_component_display(
     commands.spawn((
         Text::new(String::from(Icon::ChevronDown.unicode())),
         TextFont {
-            font: font.clone(),
-            font_size: tokens::FONT_SM,
+            font: (font.clone()).into(),
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_SECONDARY),
@@ -699,8 +699,8 @@ pub(crate) fn spawn_component_display(
     commands.spawn((
         Text::new(String::from(Icon::Move3d.unicode())),
         TextFont {
-            font: font.clone(),
-            font_size: tokens::TEXT_SIZE,
+            font: (font.clone()).into(),
+            font_size: (tokens::TEXT_SIZE).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_SECONDARY),
@@ -716,8 +716,8 @@ pub(crate) fn spawn_component_display(
     commands.spawn((
         Text::new(name.to_string()),
         TextFont {
-            font: body_font,
-            font_size: tokens::FONT_SM,
+            font: (body_font).into(),
+            font_size: (tokens::FONT_SM).into(),
             weight: FontWeight::MEDIUM,
             ..Default::default()
         },
@@ -750,8 +750,8 @@ pub(crate) fn spawn_component_display(
             commands.spawn((
                 Text::new(String::from(Icon::RotateCcw.unicode())),
                 TextFont {
-                    font: font.clone(),
-                    font_size: tokens::FONT_SM,
+                    font: (font.clone()).into(),
+                    font_size: (tokens::FONT_SM).into(),
                     ..Default::default()
                 },
                 TextColor(default_style::INSPECTOR_OVERRIDE),
@@ -777,8 +777,8 @@ pub(crate) fn spawn_component_display(
         commands.spawn((
             Text::new(String::from(Icon::X.unicode())),
             TextFont {
-                font: font.clone(),
-                font_size: tokens::FONT_SM,
+                font: (font.clone()).into(),
+                font_size: (tokens::FONT_SM).into(),
                 ..Default::default()
             },
             TextColor(tokens::TEXT_SECONDARY),

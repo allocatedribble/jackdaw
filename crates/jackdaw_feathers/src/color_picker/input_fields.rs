@@ -326,7 +326,7 @@ fn spawn_single_input_field(
             col.spawn((
                 Text::new(config.label),
                 TextFont {
-                    font_size: TEXT_SIZE,
+                    font_size: TEXT_SIZE.into(),
                     ..default()
                 },
                 TextColor(TEXT_MUTED_COLOR.into()),
@@ -347,7 +347,7 @@ pub(super) fn handle_input_field_blur(
     text_inputs: Query<&bevy_ui_text_input::TextInputBuffer, With<EditorTextEdit>>,
     parents: Query<&ChildOf>,
 ) {
-    let current_focus = input_focus.0;
+    let current_focus = input_focus.get();
     let previous_focus = *last_focus;
     *last_focus = current_focus;
 
@@ -403,7 +403,7 @@ pub(super) fn sync_text_inputs_to_state(
             let text = field.kind.format_value(state);
 
             for (text_input_entity, mut queue) in &mut text_inputs {
-                if input_focus.0 == Some(text_input_entity) {
+                if input_focus.get() == Some(text_input_entity) {
                     continue;
                 }
 

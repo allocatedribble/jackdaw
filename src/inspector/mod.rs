@@ -148,7 +148,7 @@ fn refresh_name_field(world: &mut World) {
         return;
     }
 
-    let input_focus = world.resource::<InputFocus>().0;
+    let input_focus = world.resource::<InputFocus>().get();
 
     for (outer, source, current) in targets {
         let Some(name) = world.get::<Name>(source) else {

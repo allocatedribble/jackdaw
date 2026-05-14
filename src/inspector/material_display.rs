@@ -48,7 +48,7 @@ fn spawn_material_fields(world: &mut World, body_entity: Entity, source_entity: 
         world.spawn((
             Text::new("(material not loaded)"),
             TextFont {
-                font_size: tokens::FONT_SM,
+                font_size: (tokens::FONT_SM).into(),
                 ..Default::default()
             },
             TextColor(tokens::TEXT_SECONDARY),
@@ -74,7 +74,7 @@ fn spawn_material_fields(world: &mut World, body_entity: Entity, source_entity: 
         world.spawn((
             Text::new("base_color:"),
             TextFont {
-                font_size: tokens::FONT_SM,
+                font_size: (tokens::FONT_SM).into(),
                 ..Default::default()
             },
             TextColor(tokens::TEXT_SECONDARY),
@@ -102,7 +102,7 @@ fn spawn_material_fields(world: &mut World, body_entity: Entity, source_entity: 
                 let Ok(mat_comp) = mat_query.get(source_entity) else {
                     return;
                 };
-                if let Some(material) = materials.get_mut(&mat_comp.0) {
+                if let Some(mut material) = materials.get_mut(&mat_comp.0) {
                     let c = event.color;
                     material.base_color = Color::srgba(c[0], c[1], c[2], c[3]);
                 }
@@ -155,7 +155,7 @@ fn spawn_material_fields(world: &mut World, body_entity: Entity, source_entity: 
         world.spawn((
             Text::new(emissive_text),
             TextFont {
-                font_size: tokens::FONT_SM,
+                font_size: (tokens::FONT_SM).into(),
                 ..Default::default()
             },
             TextColor(tokens::TEXT_SECONDARY),
@@ -167,7 +167,7 @@ fn spawn_material_fields(world: &mut World, body_entity: Entity, source_entity: 
     world.spawn((
         Text::new(format!("alpha_mode: {alpha_mode_str}")),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_SECONDARY),
@@ -200,8 +200,8 @@ pub(super) fn on_material_text_commit(
             let Ok(mat_comp) = mat_query.get(binding.source_entity) else {
                 return;
             };
-            if let Some(material) = materials.get_mut(&mat_comp.0) {
-                (binding.apply_fn)(material, value);
+            if let Some(mut material) = materials.get_mut(&mat_comp.0) {
+                (binding.apply_fn)(&mut material, value);
             }
             return;
         }
@@ -232,7 +232,7 @@ fn spawn_material_numeric_field(
     world.spawn((
         Text::new(format!("{label}:")),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_SECONDARY),

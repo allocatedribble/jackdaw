@@ -59,7 +59,7 @@ impl JackdawExtension for CoreWindowsExtension {
                         children![(
                             Text::new("Import"),
                             TextFont {
-                                font_size: 11.0,
+                                font_size: (11.0).into(),
                                 ..default()
                             },
                             TextColor(Color::srgba(1.0, 1.0, 1.0, 0.3)),
@@ -223,7 +223,7 @@ impl JackdawExtension for TerminalExtension {
                         children![(
                             Text::new("Terminal window (not implemented yet)"),
                             TextFont {
-                                font_size: 11.0,
+                                font_size: (11.0).into(),
                                 ..default()
                             },
                             TextColor(Color::srgba(1.0, 1.0, 1.0, 0.3)),
@@ -302,7 +302,7 @@ impl JackdawExtension for InspectorExtension {
                         children![(
                             Text::new("Resources"),
                             TextFont {
-                                font_size: 11.0,
+                                font_size: (11.0).into(),
                                 ..default()
                             },
                             TextColor(Color::srgba(1.0, 1.0, 1.0, 0.3)),
@@ -327,7 +327,7 @@ impl JackdawExtension for InspectorExtension {
                         children![(
                             Text::new("Systems"),
                             TextFont {
-                                font_size: 11.0,
+                                font_size: (11.0).into(),
                                 ..default()
                             },
                             TextColor(Color::srgba(1.0, 1.0, 1.0, 0.3)),

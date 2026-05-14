@@ -38,7 +38,7 @@ pub fn status_bar() -> impl Bundle {
                 StatusBarLeft,
                 Text::new("Ready"),
                 TextFont {
-                    font_size: tokens::FONT_SM,
+                    font_size: tokens::FONT_SM.into(),
                     ..Default::default()
                 },
                 ThemedText,
@@ -47,7 +47,7 @@ pub fn status_bar() -> impl Bundle {
                 StatusBarCenter,
                 Text::new(""),
                 TextFont {
-                    font_size: tokens::FONT_SM,
+                    font_size: tokens::FONT_SM.into(),
                     ..Default::default()
                 },
                 TextColor(tokens::TEXT_SECONDARY),
@@ -56,7 +56,7 @@ pub fn status_bar() -> impl Bundle {
                 StatusBarRight,
                 Text::new(""),
                 TextFont {
-                    font_size: tokens::FONT_SM,
+                    font_size: tokens::FONT_SM.into(),
                     ..Default::default()
                 },
                 TextColor(tokens::TEXT_SECONDARY),

@@ -364,7 +364,7 @@ fn spawn_item(
         commands.spawn((
             Text::new(module_path),
             TextFont {
-                font_size: tokens::TEXT_SIZE_SM,
+                font_size: (tokens::TEXT_SIZE_SM).into(),
                 ..Default::default()
             },
             TextColor(tokens::TEXT_SECONDARY),

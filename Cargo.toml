@@ -67,6 +67,7 @@ members = [
 [dependencies]
 bevy.workspace = true
 jackdaw_jsn.workspace = true
+jackdaw_bsn.workspace = true
 jackdaw_geometry.workspace = true
 bevy_monitors.workspace = true
 bevy_infinite_grid.workspace = true
@@ -129,11 +130,13 @@ ctrlc = "3"
 bevy_simple_subsecond_system = { version = "0.2", optional = true }
 
 [workspace.dependencies]
-bevy = { version = "0.18", features = ["experimental_bevy_feathers", "serialize", "debug", "bevy_remote", "file_watcher", "reflect_documentation"] }
+bevy = { path = "../bevy", features = ["bevy_feathers", "bevy_world_serialization", "serialize", "debug", "bevy_remote", "file_watcher", "reflect_documentation"] }
+bevy_math = { path = "../bevy/crates/bevy_math" }
 jackdaw_jsn = { version = "0.4.1", path = "crates/jackdaw_jsn" }
+jackdaw_bsn = { version = "0.4.1", path = "crates/jackdaw_bsn" }
 jackdaw_geometry = { version = "0.4.1", path = "crates/jackdaw_geometry" }
-bevy_monitors = "0.2"
-bevy_infinite_grid = "0.18"
+bevy_monitors = { path = "../compat/bevy_monitors-0.2.2" }
+bevy_infinite_grid = { path = "../compat/bevy_infinite_grid-0.18.0" }
 jackdaw_camera = { version = "0.4.1", path = "crates/jackdaw_camera" }
 jackdaw_feathers = { version = "0.4.1", path = "crates/jackdaw_feathers" }
 jackdaw_widgets = { version = "0.4.1", path = "crates/jackdaw_widgets" }
@@ -148,9 +151,9 @@ rand = "0.9"
 serde = "1"
 lucide-icons = "0.563"
 serde_json = "1"
-bevy_ui_text_input = "0.7"
-bevy_easings = "0.18.0"
-avian3d = { version = "0.6", default-features = false, features = ["3d", "parry-f32", "collider-from-mesh"] }
+bevy_ui_text_input = { path = "../compat/bevy_ui_text_input-0.7.0" }
+bevy_easings = { path = "../compat/bevy_easings-0.18.0" }
+avian3d = { path = "../avian/crates/avian3d", default-features = false, features = ["3d", "f32", "parry-f32", "collider-from-mesh", "parallel"] }
 jackdaw_avian_integration = { version = "0.4.1", path = "crates/jackdaw_avian_integration" }
 jackdaw_runtime = { version = "0.4.1", path = "crates/jackdaw_runtime" }
 jackdaw_panels = { version = "0.4.1", path = "crates/jackdaw_panels" }
@@ -161,9 +164,9 @@ jackdaw_dylib = { version = "0.4.1", path = "crates/jackdaw_dylib" }
 jackdaw_loader = { version = "0.4.1", path = "crates/jackdaw_loader" }
 jackdaw_sdk = { version = "0.4.1", path = "crates/jackdaw_sdk" }
 jackdaw_rustc_wrapper = { version = "0.4.1", path = "crates/jackdaw_rustc_wrapper" }
-bevy_enhanced_input = "0.24"
+bevy_enhanced_input = { path = "../compat/bevy_enhanced_input-0.24.4" }
 rfd = "0.15"
-bevy_rerecast = { version = "0.4", default-features = true }
+bevy_rerecast = { path = "../compat/bevy_rerecast-0.4.0", default-features = true }
 ehttp = { version = "0.5", default-features = false, features = ["native-async", "json"] }
 bincode = { version = "2", features = ["serde"], default-features = false }
 base64 = { version = "0.22", default-features = false, features = ["alloc"] }
@@ -218,6 +221,43 @@ workspace = true
 
 [profile.dev]
 opt-level = 1
+
+[patch.crates-io]
+bevy = { path = "../bevy" }
+bevy_app = { path = "../bevy/crates/bevy_app" }
+bevy_asset = { path = "../bevy/crates/bevy_asset" }
+bevy_color = { path = "../bevy/crates/bevy_color" }
+bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
+bevy_gizmos = { path = "../bevy/crates/bevy_gizmos" }
+bevy_image = { path = "../bevy/crates/bevy_image" }
+bevy_input = { path = "../bevy/crates/bevy_input" }
+bevy_light = { path = "../bevy/crates/bevy_light" }
+bevy_math = { path = "../bevy/crates/bevy_math" }
+bevy_pbr = { path = "../bevy/crates/bevy_pbr" }
+bevy_picking = { path = "../bevy/crates/bevy_picking" }
+bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
+bevy_remote = { path = "../bevy/crates/bevy_remote" }
+bevy_render = { path = "../bevy/crates/bevy_render" }
+bevy_scene = { path = "../bevy/crates/bevy_scene" }
+bevy_text = { path = "../bevy/crates/bevy_text" }
+bevy_transform = { path = "../bevy/crates/bevy_transform" }
+bevy_ui = { path = "../bevy/crates/bevy_ui" }
+bevy_window = { path = "../bevy/crates/bevy_window" }
+bevy_world_serialization = { path = "../bevy/crates/bevy_world_serialization" }
+avian3d = { path = "../avian/crates/avian3d" }
+bevy_enhanced_input = { path = "../compat/bevy_enhanced_input-0.24.4" }
+bevy_infinite_grid = { path = "../compat/bevy_infinite_grid-0.18.0" }
+bevy_monitors = { path = "../compat/bevy_monitors-0.2.2" }
+bevy_ui_text_input = { path = "../compat/bevy_ui_text_input-0.7.0" }
+bevy_easings = { path = "../compat/bevy_easings-0.18.0" }
+bevy_rerecast = { path = "../compat/bevy_rerecast-0.4.0" }
+bevy_rerecast_core = { path = "../compat/bevy_rerecast_core-0.4.1" }
+bevy_rerecast_editor_integration = { path = "../compat/bevy_rerecast_editor_integration-0.4.0" }
+rerecast = { path = "../compat/rerecast-0.3.2" }
+bevy_heavy = { path = "../compat/bevy_heavy-0.4.0" }
+bevy_transform_interpolation = { path = "../compat/bevy_transform_interpolation-0.4.0" }
+glam_matrix_extras = { path = "../compat/glam_matrix_extras-0.2.0" }
+glamx = { path = "../compat/glamx-0.1.3" }
 
 [profile.dev.package."*"]
 opt-level = 3

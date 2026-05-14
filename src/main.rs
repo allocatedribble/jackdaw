@@ -1,3 +1,5 @@
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+
 use bevy::{
     asset::AssetPlugin,
     ecs::error::ErrorContext,
@@ -69,6 +71,16 @@ fn main() -> AppExit {
         .set_error_handler(error_handler)
         .add_plugins(
             DefaultPlugins
+                .build()
+                .disable::<bevy::input_focus::InputDispatchPlugin>()
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Jackdaw".to_string(),
+                        decorations: false,
+                        ..default()
+                    }),
+                    ..default()
+                })
                 .set(AssetPlugin {
                     file_path: project_root.join("assets").to_string_lossy().to_string(),
                     ..default()

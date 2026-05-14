@@ -1,4 +1,4 @@
-use bevy::input_focus::InputFocus;
+use bevy::input_focus::{FocusCause, InputFocus};
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::text::{FontFeatureTag, FontFeatures};
@@ -340,8 +340,8 @@ fn setup_text_edit_input(
                 .spawn((
                     Text::new(label),
                     TextFont {
-                        font: font.clone(),
-                        font_size: TEXT_SIZE_SM,
+                        font: font.clone().into(),
+                        font_size: TEXT_SIZE_SM.into(),
                         weight: FontWeight::MEDIUM,
                         ..default()
                     },
@@ -490,12 +490,12 @@ fn setup_text_edit_input(
                             children![(
                                 Text::new(label),
                                 TextFont {
-                                    font: font.clone(),
-                                    font_size: *size,
+                                    font: font.clone().into(),
+                                    font_size: (*size).into(),
                                     ..default()
                                 },
                                 TextColor(text_color),
-                                TextLayout::new_with_justify(Justify::Center),
+                                TextLayout::justify(Justify::Center),
                             )],
                         ))
                         .id();
@@ -527,8 +527,8 @@ fn setup_text_edit_input(
                 ..default()
             },
             TextFont {
-                font: font.clone(),
-                font_size: TEXT_SIZE,
+                font: font.clone().into(),
+                font_size: TEXT_SIZE.into(),
                 font_features: tabular_figures.clone(),
                 ..default()
             },
@@ -554,7 +554,7 @@ fn setup_text_edit_input(
         ));
 
         if config.auto_focus {
-            focus.0 = Some(text_input.id());
+            focus.set(text_input.id(), FocusCause::Navigated);
         }
 
         if let Some(filter) = filter {
@@ -590,8 +590,8 @@ fn setup_text_edit_input(
                     TextEditSuffixNode(text_input_entity),
                     Text::new(suffix.clone()),
                     TextFont {
-                        font: font.clone(),
-                        font_size: TEXT_SIZE,
+                        font: font.clone().into(),
+                        font_size: TEXT_SIZE.into(),
                         font_features: tabular_figures.clone(),
                         ..default()
                     },
@@ -624,7 +624,7 @@ fn handle_focus_style(
     mut wrappers: Query<(&TextEditWrapper, &mut BorderColor, &Hovered)>,
 ) {
     for (wrapper, mut border_color, hovered) in &mut wrappers {
-        let color = match (focus.0 == Some(wrapper.0), hovered.get()) {
+        let color = match (focus.get() == Some(wrapper.0), hovered.get()) {
             (true, _) => PRIMARY_COLOR,
             (_, true) => BORDER_COLOR.lighter(0.05),
             _ => BORDER_COLOR,
@@ -683,7 +683,7 @@ fn handle_suffix(
 
         let offset = WRAPPER_PADDING + if has_prefix { PREFIX_EXTRA } else { 0.0 };
 
-        let show = focus.0 != Some(entity) && !buffer.get_text().is_empty();
+        let show = focus.get() != Some(entity) && !buffer.get_text().is_empty();
         node.left = px(layout_info.size.x + offset);
         node.display = if show { Display::Flex } else { Display::None };
     }
@@ -704,7 +704,7 @@ fn handle_click_to_focus(
             .iter()
             .any(|c| drag_hitboxes.get(c).is_ok_and(|d| d.dragging));
         if *interaction == Interaction::Pressed && !is_dragging {
-            focus.0 = Some(wrapper.0);
+            focus.set(wrapper.0, FocusCause::Pressed);
         }
     }
 }
@@ -716,7 +716,7 @@ fn handle_unfocus(
     text_edits: Query<&ChildOf, With<EditorTextEdit>>,
     wrappers: Query<&Interaction, With<TextEditWrapper>>,
 ) {
-    let Some(focused_entity) = focus.0 else {
+    let Some(focused_entity) = focus.get() else {
         return;
     };
     let Ok(child_of) = text_edits.get(focused_entity) else {
@@ -733,7 +733,7 @@ fn handle_unfocus(
         || keyboard.just_pressed(KeyCode::NumpadEnter);
 
     if clicked_outside || key_dismiss {
-        focus.0 = None;
+        focus.clear();
     }
 }
 
@@ -754,10 +754,10 @@ fn handle_clamp_on_unfocus(
     >,
 ) {
     let prev = *prev_focus;
-    *prev_focus = focus.0;
+    *prev_focus = focus.get();
 
     let Some(was_focused) = prev else { return };
-    if focus.0 == Some(was_focused) {
+    if focus.get() == Some(was_focused) {
         return;
     }
 
@@ -801,7 +801,7 @@ fn handle_numeric_increment(
         With<EditorTextEdit>,
     >,
 ) {
-    let Some(focused_entity) = focus.0 else {
+    let Some(focused_entity) = focus.get() else {
         return;
     };
     let Ok((_, variant, buffer, mut queue, suffix, range)) = text_edits.get_mut(focused_entity)

@@ -249,7 +249,7 @@ fn populate_keybind_dialog(
                         children![(
                             Text::new(category),
                             TextFont {
-                                font_size: tokens::FONT_LG,
+                                font_size: (tokens::FONT_LG).into(),
                                 weight: FontWeight::BOLD,
                                 ..Default::default()
                             },
@@ -285,7 +285,7 @@ fn populate_keybind_dialog(
                 .spawn((
                     Text::new(action.to_string()),
                     TextFont {
-                        font_size: tokens::FONT_MD,
+                        font_size: (tokens::FONT_MD).into(),
                         ..Default::default()
                     },
                     TextColor(tokens::TEXT_PRIMARY),
@@ -319,7 +319,7 @@ fn populate_keybind_dialog(
                     KeybindDisplayText(action),
                     Text::new(binding_text),
                     TextFont {
-                        font_size: tokens::FONT_MD,
+                        font_size: (tokens::FONT_MD).into(),
                         ..Default::default()
                     },
                     TextColor(text_color),

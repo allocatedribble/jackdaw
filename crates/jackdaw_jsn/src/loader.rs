@@ -6,13 +6,13 @@ use bevy::{
     },
     prelude::*,
     reflect::{TypeRegistryArc, serde::TypedReflectDeserializer},
-    scene::DynamicScene,
+    world_serialization::{DynamicWorld, DynamicWorldBuilder},
 };
 use serde::de::DeserializeSeed;
 
 use crate::format::{JsnEntity, JsnScene, JsnSceneV2};
 
-/// Asset loader for `.jsn` files → `DynamicScene`.
+/// Asset loader for `.jsn` files -> `DynamicWorld`.
 #[derive(Debug, TypePath)]
 pub struct JsnAssetLoader {
     type_registry: TypeRegistryArc,
@@ -28,7 +28,7 @@ impl FromWorld for JsnAssetLoader {
 }
 
 impl AssetLoader for JsnAssetLoader {
-    type Asset = DynamicScene;
+    type Asset = DynamicWorld;
     type Settings = ();
     type Error = JsnLoadError;
 
@@ -54,7 +54,7 @@ impl AssetLoader for JsnAssetLoader {
             },
         };
 
-        // Build a DynamicScene by spawning into a temporary world
+        // Build a DynamicWorld by spawning into a temporary world
         let scene =
             build_dynamic_scene(&jsn.scene, &self.type_registry).map_err(JsnLoadError::Scene)?;
 
@@ -66,11 +66,11 @@ impl AssetLoader for JsnAssetLoader {
     }
 }
 
-/// Spawn `JsnEntity` list into a temp world, then extract a `DynamicScene`.
+/// Spawn `JsnEntity` list into a temp world, then extract a `DynamicWorld`.
 fn build_dynamic_scene(
     entities: &[JsnEntity],
     type_registry: &TypeRegistryArc,
-) -> Result<DynamicScene, String> {
+) -> Result<DynamicWorld, String> {
     let mut world = World::new();
     world.insert_resource(AppTypeRegistry(type_registry.clone()));
 
@@ -111,8 +111,9 @@ fn build_dynamic_scene(
     }
     drop(registry);
 
-    // Extract all spawned entities into a DynamicScene
-    let scene = DynamicSceneBuilder::from_world(&world)
+    // Extract all spawned entities into a DynamicWorld
+    let registry = type_registry.read();
+    let scene = DynamicWorldBuilder::from_world(&world, &registry)
         .extract_entities(spawned.into_iter())
         .build();
 

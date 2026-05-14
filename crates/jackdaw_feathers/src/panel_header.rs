@@ -96,7 +96,7 @@ pub fn panel_header(title: &str) -> impl Bundle {
             children![(
                 Text::new(title),
                 TextFont {
-                    font_size: tokens::TEXT_SIZE_LG,
+                    font_size: tokens::TEXT_SIZE_LG.into(),
                     ..Default::default()
                 },
                 TextColor(tokens::TEXT_PRIMARY),
@@ -181,8 +181,8 @@ fn setup_panel_tab_bars(
                     .spawn((
                         Text::new(String::from(glyph.unicode())),
                         TextFont {
-                            font: font_handle,
-                            font_size: tokens::ICON_SM,
+                            font: font_handle.into(),
+                            font_size: tokens::ICON_SM.into(),
                             ..Default::default()
                         },
                         TextColor(if *active {
@@ -199,7 +199,7 @@ fn setup_panel_tab_bars(
             commands.spawn((
                 Text::new(label.clone()),
                 TextFont {
-                    font_size: tokens::TEXT_SIZE_LG,
+                    font_size: tokens::TEXT_SIZE_LG.into(),
                     ..Default::default()
                 },
                 TextColor(if *active {
@@ -242,8 +242,8 @@ fn setup_panel_tab_bars(
                     children![(
                         Text::new(String::from(Icon::Plus.unicode())),
                         TextFont {
-                            font: font_handle.clone(),
-                            font_size: tokens::ICON_SM,
+                            font: font_handle.clone().into(),
+                            font_size: tokens::ICON_SM.into(),
                             ..Default::default()
                         },
                         TextColor(tokens::TAB_INACTIVE_TEXT),
@@ -265,8 +265,8 @@ fn setup_panel_tab_bars(
                         children![(
                             Text::new(String::from(Icon::GripVertical.unicode())),
                             TextFont {
-                                font: font_handle.clone(),
-                                font_size: tokens::ICON_SM,
+                                font: font_handle.clone().into(),
+                                font_size: tokens::ICON_SM.into(),
                                 ..Default::default()
                             },
                             TextColor(tokens::TAB_INACTIVE_TEXT),

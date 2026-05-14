@@ -98,6 +98,7 @@ impl Plugin for AssetBrowserPlugin {
                     check_watcher_events,
                     remove_incompatible_image_nodes,
                     update_asset_browser_filter,
+                    handle_asset_browser_mouse_navigation,
                 )
                     .run_if(in_state(crate::AppState::Editor)),
             )
@@ -138,6 +139,8 @@ pub struct AssetBrowserState {
     pub selected_file: Option<String>,
     /// Timestamp of last click for double-click detection.
     pub last_click_time: f64,
+    back_stack: Vec<PathBuf>,
+    forward_stack: Vec<PathBuf>,
 }
 
 impl Default for AssetBrowserState {
@@ -152,6 +155,67 @@ impl Default for AssetBrowserState {
             entries: Vec::new(),
             selected_file: None,
             last_click_time: 0.0,
+            back_stack: Vec::new(),
+            forward_stack: Vec::new(),
+        }
+    }
+}
+
+impl AssetBrowserState {
+    fn reset_history(&mut self) {
+        self.back_stack.clear();
+        self.forward_stack.clear();
+        self.selected_file = None;
+        self.last_click_time = 0.0;
+    }
+
+    fn set_root_directory(&mut self, root: PathBuf) {
+        self.root_directory = root.clone();
+        self.current_directory = root;
+        self.reset_history();
+        self.needs_refresh = true;
+    }
+
+    fn navigate_to(&mut self, directory: PathBuf) {
+        if directory == self.current_directory {
+            return;
+        }
+
+        self.back_stack.push(self.current_directory.clone());
+        self.forward_stack.clear();
+        self.current_directory = directory;
+        self.selected_file = None;
+        self.last_click_time = 0.0;
+        self.needs_refresh = true;
+    }
+
+    fn navigate_back(&mut self) {
+        while let Some(previous) = self.back_stack.pop() {
+            if previous == self.current_directory {
+                continue;
+            }
+
+            self.forward_stack.push(self.current_directory.clone());
+            self.current_directory = previous;
+            self.selected_file = None;
+            self.last_click_time = 0.0;
+            self.needs_refresh = true;
+            return;
+        }
+    }
+
+    fn navigate_forward(&mut self) {
+        while let Some(next) = self.forward_stack.pop() {
+            if next == self.current_directory {
+                continue;
+            }
+
+            self.back_stack.push(self.current_directory.clone());
+            self.current_directory = next;
+            self.selected_file = None;
+            self.last_click_time = 0.0;
+            self.needs_refresh = true;
+            return;
         }
     }
 }
@@ -240,17 +304,12 @@ fn setup_initial_directory(
     project_root: Option<Res<crate::project::ProjectRoot>>,
 ) {
     if let Some(project) = project_root {
-        let assets_dir = project.assets_dir();
-        state.root_directory = assets_dir.clone();
-        state.current_directory = assets_dir;
+        state.set_root_directory(project.root.clone());
     } else {
-        let assets_dir = state.root_directory.join("assets");
-        if assets_dir.is_dir() {
-            state.current_directory = assets_dir.clone();
-            state.root_directory = assets_dir;
-        }
+        state.current_directory = state.root_directory.clone();
+        state.reset_history();
+        state.needs_refresh = true;
     }
-    state.needs_refresh = true;
 
     setup_directory_watcher(&state.root_directory, &mut commands);
 }
@@ -275,9 +334,6 @@ fn refresh_browser_on_change(
             .filter_map(|entry| {
                 let entry = entry.ok()?;
                 let file_name = entry.file_name().to_string_lossy().to_string();
-                if file_name.starts_with('.') {
-                    return None;
-                }
                 if !state.filter.is_empty()
                     && !file_name
                         .to_lowercase()
@@ -287,6 +343,9 @@ fn refresh_browser_on_change(
                 }
                 let path = entry.path();
                 let is_directory = entry.file_type().ok()?.is_dir();
+                if is_directory && file_name == "target" {
+                    return None;
+                }
 
                 // Build texture info for image files
                 let texture_info = if !is_directory && is_image_file_path(&path) {
@@ -351,6 +410,32 @@ fn refresh_browser_on_change(
         }
     }
 
+    if state.entries.is_empty() {
+        let empty_text = if state.filter.is_empty() {
+            "No files in this folder"
+        } else {
+            "No files match this search"
+        };
+        commands.spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..Default::default()
+            },
+            ChildOf(content_entity),
+            children![(
+                Text::new(empty_text),
+                TextFont {
+                    font_size: (tokens::FONT_MD).into(),
+                    ..Default::default()
+                },
+                TextColor(tokens::TEXT_TERTIARY),
+            )],
+        ));
+    }
+
     // Spawn items
     for entry in &state.entries {
         let path_for_click = entry.path.to_string_lossy().to_string();
@@ -412,7 +497,7 @@ fn refresh_browser_on_change(
                 commands.spawn((
                     Text::new(badge_text),
                     TextFont {
-                        font_size: 8.0,
+                        font_size: (8.0).into(),
                         ..Default::default()
                     },
                     TextColor(Color::srgb(0.8, 0.8, 0.8)),
@@ -434,7 +519,7 @@ fn refresh_browser_on_change(
             let mut name_label = commands.spawn((
                 Text::new(display_name),
                 TextFont {
-                    font_size: tokens::FONT_XS,
+                    font_size: (tokens::FONT_XS).into(),
                     ..default()
                 },
                 TextColor(tokens::TEXT_SECONDARY),
@@ -537,9 +622,7 @@ fn refresh_browser_on_change(
 
                         if is_double && is_dir {
                             // Double-click on directory: navigate
-                            state.current_directory = PathBuf::from(&path_for_click);
-                            state.selected_file = None;
-                            state.needs_refresh = true;
+                            state.navigate_to(PathBuf::from(&path_for_click));
                         } else if is_double && !is_dir {
                             // Double-click on file: open/apply
                             // (handled by FileItemDoubleClicked observer)
@@ -566,7 +649,7 @@ fn refresh_browser_on_change(
 
     // Build breadcrumb from the full current directory path.
     // Each path component is a clickable button that navigates to that directory.
-    let current_dir = state.current_directory.to_string_lossy().to_string();
+    let current_dir = state.current_directory.clone();
 
     commands
         .spawn((
@@ -580,24 +663,20 @@ fn refresh_browser_on_change(
             ChildOf(breadcrumb_entity),
         ))
         .with_children(|parent| {
-            // Split the absolute path into components and build up cumulative paths
-            let components: Vec<&str> = current_dir
-                .split(std::path::MAIN_SEPARATOR)
-                .filter(|s| !s.is_empty())
-                .collect();
-
-            let mut cumulative = String::new();
-            for (i, component) in components.iter().enumerate() {
-                cumulative += std::path::MAIN_SEPARATOR_STR;
-                cumulative += component;
-                let nav_path = cumulative.clone();
+            // Split the absolute path into components using `Path`
+            // semantics so Windows drive prefixes stay valid.
+            let mut cumulative = PathBuf::new();
+            for (i, component) in current_dir.components().enumerate() {
+                cumulative.push(component.as_os_str());
+                let nav_path = cumulative.to_string_lossy().to_string();
+                let label = component.as_os_str().to_string_lossy().to_string();
 
                 // Separator (skip before first)
                 if i > 0 {
                     parent.spawn((
                         Text::new(" / "),
                         TextFont {
-                            font_size: tokens::FONT_MD,
+                            font_size: (tokens::FONT_MD).into(),
                             ..Default::default()
                         },
                         TextColor(tokens::TEXT_SECONDARY),
@@ -608,14 +687,14 @@ fn refresh_browser_on_change(
                 parent
                     .spawn((
                         Button,
-                        Text::new(*component),
+                        Text::new(label),
                         Node {
                             border_radius: BorderRadius::all(Val::Px(3.0)),
                             padding: UiRect::axes(Val::Px(2.0), Val::Px(1.0)),
                             ..default()
                         },
                         TextFont {
-                            font_size: tokens::FONT_MD,
+                            font_size: (tokens::FONT_MD).into(),
                             ..Default::default()
                         },
                         TextColor(tokens::TEXT_TERTIARY),
@@ -640,7 +719,7 @@ fn refresh_browser_on_change(
                     parent.spawn((
                         Text::new(" / "),
                         TextFont {
-                            font_size: tokens::FONT_MD,
+                            font_size: (tokens::FONT_MD).into(),
                             ..Default::default()
                         },
                         TextColor(tokens::TEXT_SECONDARY),
@@ -648,7 +727,7 @@ fn refresh_browser_on_change(
                     parent.spawn((
                         Text::new(file_name),
                         TextFont {
-                            font_size: tokens::FONT_MD,
+                            font_size: (tokens::FONT_MD).into(),
                             ..Default::default()
                         },
                         TextColor(tokens::TEXT_PRIMARY),
@@ -665,6 +744,31 @@ fn update_asset_browser_filter(
     for filter in filters {
         state.filter = filter.0.clone();
         state.needs_refresh = true;
+    }
+}
+
+fn handle_asset_browser_mouse_navigation(
+    mouse: Res<ButtonInput<MouseButton>>,
+    mut state: ResMut<AssetBrowserState>,
+    hovered_browser_nodes: Query<
+        &Hovered,
+        Or<(With<AssetBrowserPanel>, With<AssetBrowserContent>)>,
+    >,
+) {
+    if !hovered_browser_nodes.iter().any(Hovered::get) {
+        return;
+    }
+
+    let back_pressed =
+        mouse.just_pressed(MouseButton::Back) || mouse.just_pressed(MouseButton::Other(3));
+    let forward_pressed =
+        mouse.just_pressed(MouseButton::Forward) || mouse.just_pressed(MouseButton::Other(4));
+
+    if back_pressed {
+        state.navigate_back();
+    }
+    if forward_pressed {
+        state.navigate_forward();
     }
 }
 
@@ -710,9 +814,7 @@ fn handle_file_double_click(
     mut commands: Commands,
 ) {
     if event.is_directory {
-        state.current_directory = PathBuf::from(&event.path);
-        state.selected_file = None; // Clear selection when navigating
-        state.needs_refresh = true;
+        state.navigate_to(PathBuf::from(&event.path));
         return;
     }
 
@@ -1013,7 +1115,7 @@ fn update_preview_panel(
     commands.spawn((
         Text::new(file_name),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_PRIMARY),
@@ -1036,7 +1138,7 @@ fn update_preview_panel(
     commands.spawn((
         Text::new(type_text),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_SECONDARY),
@@ -1089,7 +1191,7 @@ fn update_preview_panel(
         commands.spawn((
             Text::new("<"),
             TextFont {
-                font_size: tokens::FONT_SM,
+                font_size: (tokens::FONT_SM).into(),
                 ..Default::default()
             },
             TextColor(tokens::TEXT_PRIMARY),
@@ -1107,7 +1209,7 @@ fn update_preview_panel(
         commands.spawn((
             Text::new(layer_text),
             TextFont {
-                font_size: tokens::FONT_SM,
+                font_size: (tokens::FONT_SM).into(),
                 ..Default::default()
             },
             TextColor(tokens::TEXT_SECONDARY),
@@ -1131,7 +1233,7 @@ fn update_preview_panel(
         commands.spawn((
             Text::new(">"),
             TextFont {
-                font_size: tokens::FONT_SM,
+                font_size: (tokens::FONT_SM).into(),
                 ..Default::default()
             },
             TextColor(tokens::TEXT_PRIMARY),
@@ -1170,7 +1272,7 @@ fn update_preview_panel(
         commands.spawn((
             Text::new("Apply"),
             TextFont {
-                font_size: tokens::FONT_SM,
+                font_size: (tokens::FONT_SM).into(),
                 ..Default::default()
             },
             TextColor(tokens::TEXT_PRIMARY),
@@ -1218,9 +1320,7 @@ fn poll_asset_browser_folder(world: &mut World) {
     if let Some(file_handle) = result {
         let path = file_handle.path().to_path_buf();
         let mut state = world.resource_mut::<AssetBrowserState>();
-        state.root_directory = path.clone();
-        state.current_directory = path.clone();
-        state.needs_refresh = true;
+        state.set_root_directory(path.clone());
 
         // Set up filesystem watcher for the new root.
         let mut commands = world.commands();
@@ -1244,6 +1344,7 @@ pub fn asset_browser_panel(icon_font: Handle<Font>) -> impl Bundle {
     (
         AssetBrowserPanel,
         EditorEntity,
+        Hovered::default(),
         Node {
             width: Val::Percent(100.0),
             height: Val::Percent(100.0),
@@ -1344,6 +1445,7 @@ pub fn asset_browser_panel(icon_font: Handle<Font>) -> impl Bundle {
                             (
                                 AssetBrowserContent,
                                 EditorEntity,
+                                Hovered::default(),
                                 Node {
                                     flex_direction: FlexDirection::Row,
                                     flex_wrap: FlexWrap::Wrap,

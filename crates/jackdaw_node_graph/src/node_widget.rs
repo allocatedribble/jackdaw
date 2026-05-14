@@ -145,7 +145,7 @@ fn title_bar(title: String, accent: Color) -> impl Bundle {
             (
                 Text::new(title),
                 TextFont {
-                    font_size: 12.0,
+                    font_size: 12.0.into(),
                     ..default()
                 },
                 TextColor(Color::srgb(0.9, 0.9, 0.92)),
@@ -271,7 +271,7 @@ fn terminal_row(
             (
                 Text::new(label),
                 TextFont {
-                    font_size: 11.0,
+                    font_size: 11.0.into(),
                     ..default()
                 },
                 TextColor(Color::srgb(0.75, 0.75, 0.78)),
@@ -302,7 +302,7 @@ pub fn body_label(text: impl Into<String>) -> impl Bundle {
     (
         Text::new(text.into()),
         TextFont {
-            font_size: jackdaw_feathers::tokens::FONT_SM,
+            font_size: jackdaw_feathers::tokens::FONT_SM.into(),
             ..default()
         },
         TextColor(jackdaw_feathers::tokens::TEXT_SECONDARY),

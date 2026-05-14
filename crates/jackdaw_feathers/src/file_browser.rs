@@ -35,8 +35,8 @@ pub fn file_browser_item(item: &FileBrowserItem, icon_font: &IconFont) -> impl B
             (
                 Text::new(String::from(icon.unicode())),
                 TextFont {
-                    font,
-                    font_size: tokens::ICON_LG,
+                    font: font.clone().into(),
+                    font_size: tokens::ICON_LG.into(),
                     ..Default::default()
                 },
                 TextColor(icon_color),
@@ -45,7 +45,7 @@ pub fn file_browser_item(item: &FileBrowserItem, icon_font: &IconFont) -> impl B
             (
                 Text::new(truncate_name(&file_name, 12)),
                 TextFont {
-                    font_size: tokens::FONT_SM,
+                    font_size: tokens::FONT_SM.into(),
                     ..Default::default()
                 },
                 ThemedText,
@@ -84,8 +84,8 @@ pub fn file_browser_list_item(item: &FileBrowserItem, icon_font: &IconFont) -> i
             (
                 Text::new(String::from(icon.unicode())),
                 TextFont {
-                    font,
-                    font_size: tokens::FONT_MD,
+                    font: font.clone().into(),
+                    font_size: tokens::FONT_MD.into(),
                     ..Default::default()
                 },
                 TextColor(icon_color),
@@ -93,7 +93,7 @@ pub fn file_browser_list_item(item: &FileBrowserItem, icon_font: &IconFont) -> i
             (
                 Text::new(item.file_name.clone()),
                 TextFont {
-                    font_size: tokens::FONT_MD,
+                    font_size: tokens::FONT_MD.into(),
                     ..Default::default()
                 },
                 ThemedText,

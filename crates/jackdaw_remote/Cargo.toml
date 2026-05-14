@@ -7,7 +7,11 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/jbuehler23/jackdaw"
 
 [dependencies]
-bevy.workspace = true
+bevy = { path = "../../../bevy", default-features = false, features = [
+    "bevy_remote",
+    "reflect_documentation",
+    "serialize",
+] }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 

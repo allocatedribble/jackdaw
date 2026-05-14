@@ -71,6 +71,7 @@ fn setup_project_files(
     state.root_directory = root.clone();
     state.needs_refresh = true;
     state.initialized = false;
+    debug!("ProjectFiles: setup root {}", root.display());
 
     // Set up file watcher
     let (tx, rx) = mpsc::channel();
@@ -124,28 +125,30 @@ fn refresh_project_tree(
     if !state.needs_refresh {
         return;
     }
-    state.needs_refresh = false;
 
-    let Ok((tree_entity, existing_children)) = tree_query.single() else {
+    let tree_containers = tree_query
+        .iter()
+        .map(|(entity, children)| (entity, children.map(|children| children.iter().collect())))
+        .collect::<Vec<(Entity, Option<Vec<Entity>>)>>();
+    if tree_containers.is_empty() {
+        debug!("ProjectFiles: refresh pending, no tree containers mounted");
+        return;
+    }
+
+    let Some(icon_font) = icon_font else {
+        debug!("ProjectFiles: refresh pending, icon font unavailable");
         return;
     };
 
-    // Clear existing children
-    if let Some(children) = existing_children {
-        for child in children.iter() {
-            commands.entity(child).despawn();
-        }
-    }
-
-    let Some(icon_font) = icon_font else { return };
-
     // Scan root directory
-    let root = &state.root_directory;
+    let root = state.root_directory.clone();
     if !root.is_dir() {
+        warn!("ProjectFiles: root is not a directory: {}", root.display());
         return;
     }
+    state.needs_refresh = false;
 
-    let mut entries = scan_directory(root);
+    let mut entries = scan_directory(&root);
     entries.sort_by(|a, b| {
         // Directories first, then alphabetical
         b.1.cmp(&a.1).then_with(|| {
@@ -155,9 +158,23 @@ fn refresh_project_tree(
                 .cmp(&b.0.file_name().unwrap_or_default().to_ascii_lowercase())
         })
     });
+    debug!(
+        "ProjectFiles: populating {} tree container(s) from {} with {} visible entrie(s)",
+        tree_containers.len(),
+        root.display(),
+        entries.len()
+    );
 
-    for (path, is_dir) in entries {
-        spawn_file_tree_row(&mut commands, tree_entity, &path, is_dir, &icon_font.0);
+    for (tree_entity, existing_children) in tree_containers {
+        if let Some(children) = existing_children {
+            for child in children {
+                commands.entity(child).despawn();
+            }
+        }
+
+        for (path, is_dir) in &entries {
+            spawn_file_tree_row(&mut commands, tree_entity, path, *is_dir, &icon_font.0);
+        }
     }
 
     state.initialized = true;
@@ -165,9 +182,9 @@ fn refresh_project_tree(
 
 /// Handle directory expansion: lazily populate children.
 fn handle_directory_expand(
-    event: On<bevy::picking::events::Pointer<bevy::picking::events::Click>>,
-    toggle_query: Query<&ChildOf, With<TreeNodeExpandToggle>>,
-    content_query: Query<&ChildOf, With<TreeRowContent>>,
+    mut event: On<bevy::picking::events::Pointer<bevy::picking::events::Click>>,
+    parent_query: Query<&ChildOf>,
+    file_nodes: Query<(), With<ProjectFileNode>>,
     mut tree_nodes: Query<(
         &mut TreeNodeExpanded,
         &mut TreeChildrenPopulated,
@@ -178,23 +195,33 @@ fn handle_directory_expand(
     mut commands: Commands,
     icon_font: Option<Res<IconFont>>,
     file_dirs: Query<(), With<ProjectFileIsDir>>,
+    mut node_query: Query<&mut Node>,
+    children_query: Query<&Children>,
+    content_query: Query<Entity, With<TreeRowContent>>,
+    toggle_markers: Query<Entity, With<TreeNodeExpandToggle>>,
+    mut text_query: Query<&mut Text>,
 ) {
+    if event.event.button != PointerButton::Primary {
+        return;
+    }
+
     let clicked = event.event_target();
 
-    // Walk up: click target → TreeRowContent → TreeNode
-    // Check if this is a toggle click
-    let tree_node_entity = if let Ok(toggle_parent) = toggle_query.get(clicked) {
-        // Clicked on the expand toggle itself
-        let content_entity = toggle_parent.parent();
-        if let Ok(content_parent) = content_query.get(content_entity) {
-            content_parent.parent()
-        } else {
-            return;
+    // Walk up from whatever was clicked inside the row until we hit the
+    // project file tree node. Text/icon children are common click targets.
+    let mut current = clicked;
+    let mut tree_node_entity = None;
+    for _ in 0..8 {
+        if file_nodes.get(current).is_ok() {
+            tree_node_entity = Some(current);
+            break;
         }
-    } else if let Ok(content_parent) = content_query.get(clicked) {
-        // Clicked on the content row
-        content_parent.parent()
-    } else {
+        let Ok(parent) = parent_query.get(current) else {
+            break;
+        };
+        current = parent.parent();
+    }
+    let Some(tree_node_entity) = tree_node_entity else {
         return;
     };
 
@@ -202,6 +229,7 @@ fn handle_directory_expand(
     if file_dirs.get(tree_node_entity).is_err() {
         return;
     }
+    event.propagate(false);
 
     let Ok((mut expanded, mut populated, children, file_node)) =
         tree_nodes.get_mut(tree_node_entity)
@@ -219,6 +247,14 @@ fn handle_directory_expand(
     else {
         return;
     };
+
+    if let Ok(mut node) = node_query.get_mut(children_entity) {
+        node.display = if expanded.0 {
+            Display::Flex
+        } else {
+            Display::None
+        };
+    }
 
     if expanded.0 && !populated.0 {
         // First expansion: scan and populate children
@@ -239,6 +275,22 @@ fn handle_directory_expand(
 
         for (path, is_dir) in entries {
             spawn_file_tree_row(&mut commands, children_entity, &path, is_dir, &icon_font.0);
+        }
+    }
+
+    if let Some(content_entity) = children.iter().find(|c| content_query.get(*c).is_ok())
+        && let Ok(content_children) = children_query.get(content_entity)
+    {
+        for content_child in content_children.iter() {
+            if toggle_markers.get(content_child).is_ok()
+                && let Ok(mut text) = text_query.get_mut(content_child)
+            {
+                text.0 = String::from(if expanded.0 {
+                    Icon::ChevronDown.unicode()
+                } else {
+                    Icon::ChevronRight.unicode()
+                });
+            }
         }
     }
 }
@@ -345,8 +397,8 @@ fn spawn_file_tree_row(
                 TreeNodeExpandToggle,
                 Text::new(String::from(Icon::ChevronRight.unicode())),
                 TextFont {
-                    font: icon_font.clone(),
-                    font_size: tokens::ICON_SM,
+                    font: (icon_font.clone()).into(),
+                    font_size: (tokens::ICON_SM).into(),
                     ..Default::default()
                 },
                 TextColor(tokens::TEXT_SECONDARY),
@@ -364,7 +416,7 @@ fn spawn_file_tree_row(
             TreeRowLabel,
             Text::new(file_name),
             TextFont {
-                font_size: tokens::TEXT_SIZE,
+                font_size: (tokens::TEXT_SIZE).into(),
                 ..Default::default()
             },
             TextColor(tokens::TEXT_PRIMARY),
@@ -386,60 +438,6 @@ fn spawn_file_tree_row(
             BorderColor::all(tokens::CONNECTION_LINE),
             ChildOf(node_entity),
         ));
-
-        // Toggle expand/collapse on click
-        let node_for_click = node_entity;
-        commands.entity(content).observe(
-            move |_: On<Pointer<Click>>,
-                  mut expanded_query: Query<&mut TreeNodeExpanded>,
-                  children_query: Query<&Children>,
-                  children_containers: Query<Entity, With<TreeRowChildren>>,
-                  mut node_query: Query<&mut Node>,
-                  toggle_texts: Query<&Children, With<TreeRowContent>>,
-                  toggle_markers: Query<Entity, With<TreeNodeExpandToggle>>,
-                  mut text_query: Query<&mut Text>| {
-                let Ok(mut expanded) = expanded_query.get_mut(node_for_click) else {
-                    return;
-                };
-                expanded.0 = !expanded.0;
-                let is_expanded = expanded.0;
-
-                // Toggle children visibility
-                if let Ok(children) = children_query.get(node_for_click) {
-                    for child in children.iter() {
-                        if children_containers.get(child).is_ok()
-                            && let Ok(mut node) = node_query.get_mut(child)
-                        {
-                            node.display = if is_expanded {
-                                Display::Flex
-                            } else {
-                                Display::None
-                            };
-                        }
-                    }
-                }
-
-                // Update chevron icon
-                if let Ok(content_children) = toggle_texts.get(node_for_click) {
-                    // Find the TreeRowContent, then its children
-                    for cc in content_children.iter() {
-                        if let Ok(content_kids) = children_query.get(cc) {
-                            for kid in content_kids.iter() {
-                                if toggle_markers.get(kid).is_ok()
-                                    && let Ok(mut text) = text_query.get_mut(kid)
-                                {
-                                    text.0 = String::from(if is_expanded {
-                                        Icon::ChevronDown.unicode()
-                                    } else {
-                                        Icon::ChevronRight.unicode()
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-        );
     } else {
         // File icon based on extension
         let icon = file_browser::file_icon(&file_name);
@@ -447,8 +445,8 @@ fn spawn_file_tree_row(
         commands.spawn((
             Text::new(String::from(icon.unicode())),
             TextFont {
-                font: icon_font.clone(),
-                font_size: tokens::ICON_SM,
+                font: (icon_font.clone()).into(),
+                font_size: (tokens::ICON_SM).into(),
                 ..Default::default()
             },
             TextColor(tokens::FILE_ICON_COLOR),
@@ -465,7 +463,7 @@ fn spawn_file_tree_row(
             TreeRowLabel,
             Text::new(file_name),
             TextFont {
-                font_size: tokens::TEXT_SIZE,
+                font_size: (tokens::TEXT_SIZE).into(),
                 ..Default::default()
             },
             TextColor(tokens::TEXT_PRIMARY),

@@ -116,8 +116,8 @@ pub fn spawn_tab_bar_world(
             children![(
                 Text::new(String::from(Icon::Plus.unicode())),
                 TextFont {
-                    font: font_handle.clone(),
-                    font_size: tokens::ICON_SM,
+                    font: font_handle.clone().into(),
+                    font_size: tokens::ICON_SM.into(),
                     ..default()
                 },
                 TextColor(tokens::TAB_INACTIVE_TEXT),
@@ -138,8 +138,8 @@ pub fn spawn_tab_bar_world(
             children![(
                 Text::new(String::from(Icon::GripVertical.unicode())),
                 TextFont {
-                    font: font_handle.clone(),
-                    font_size: tokens::ICON_SM,
+                    font: font_handle.clone().into(),
+                    font_size: tokens::ICON_SM.into(),
                     ..default()
                 },
                 TextColor(tokens::TAB_INACTIVE_TEXT),
@@ -214,9 +214,9 @@ fn spawn_tab(
 
     world.spawn((
         Text::new(label.to_string()),
-        TextLayout::new_with_linebreak(LineBreak::NoWrap),
+        TextLayout::linebreak(LineBreak::NoWrap),
         TextFont {
-            font_size: tokens::TEXT_SIZE_LG,
+            font_size: tokens::TEXT_SIZE_LG.into(),
             ..default()
         },
         TextColor(text_color),
@@ -245,8 +245,8 @@ fn spawn_tab(
             children![(
                 Text::new(String::from(Icon::X.unicode())),
                 TextFont {
-                    font: font_handle,
-                    font_size: 10.0,
+                    font: font_handle.into(),
+                    font_size: 10.0.into(),
                     ..default()
                 },
                 TextColor(tokens::TAB_INACTIVE_TEXT),

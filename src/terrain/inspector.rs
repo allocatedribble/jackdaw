@@ -197,7 +197,7 @@ fn update_terrain_inspector(
     commands.spawn((
         Text::new("Noise Type"),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_SECONDARY),
@@ -388,7 +388,7 @@ fn sync_brush_fields(
         let mut found = false;
         for child in children.iter() {
             if let Ok(wrapper) = wrapper_query.get(child) {
-                if dragging_query.get(child).is_ok() || input_focus.0 == Some(wrapper.0) {
+                if dragging_query.get(child).is_ok() || input_focus.get() == Some(wrapper.0) {
                     found = true;
                     break;
                 }
@@ -410,7 +410,7 @@ fn sync_brush_fields(
             if let Ok(grandchildren) = children_query.get(child) {
                 for gc in grandchildren.iter() {
                     if let Ok(wrapper) = wrapper_query.get(gc) {
-                        if dragging_query.get(gc).is_ok() || input_focus.0 == Some(wrapper.0) {
+                        if dragging_query.get(gc).is_ok() || input_focus.get() == Some(wrapper.0) {
                             found = true;
                             break;
                         }
@@ -457,7 +457,7 @@ fn spawn_labeled_field(
     commands.spawn((
         Text::new(label),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_SECONDARY),
@@ -467,7 +467,7 @@ fn spawn_labeled_field(
     commands.spawn((
         Text::new(tooltip),
         TextFont {
-            font_size: 10.0,
+            font_size: (10.0).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_SECONDARY),
@@ -508,7 +508,7 @@ fn spawn_gen_field(
     commands.spawn((
         Text::new(label),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_SECONDARY),
@@ -518,7 +518,7 @@ fn spawn_gen_field(
     commands.spawn((
         Text::new(tooltip),
         TextFont {
-            font_size: 10.0,
+            font_size: (10.0).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_SECONDARY),
@@ -559,7 +559,7 @@ fn spawn_erosion_field(
     commands.spawn((
         Text::new(label),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_SECONDARY),
@@ -569,7 +569,7 @@ fn spawn_erosion_field(
     commands.spawn((
         Text::new(tooltip),
         TextFont {
-            font_size: 10.0,
+            font_size: (10.0).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_SECONDARY),

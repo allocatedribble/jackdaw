@@ -26,16 +26,14 @@ impl Plugin for IconFontPlugin {
         // Both fonts are embedded bytes, so no async loading is needed.
         let mut fonts = app.world_mut().resource_mut::<Assets<Font>>();
 
-        let icon_font = Font::try_from_bytes(lucide_icons::LUCIDE_FONT_BYTES.to_vec())
-            .expect("Failed to load Lucide icon font");
+        let icon_font = Font::from_bytes(lucide_icons::LUCIDE_FONT_BYTES.to_vec(), "Lucide");
         let icon_handle = fonts.add(icon_font);
 
-        let editor_font =
-            Font::try_from_bytes(FIRA_SANS_BYTES.to_vec()).expect("Failed to load FiraSans font");
+        let editor_font = Font::from_bytes(FIRA_SANS_BYTES.to_vec(), "Fira Sans");
         let editor_font_handle = fonts.add(editor_font.clone());
 
-        let editor_font_italic = Font::try_from_bytes(FIRA_SANS_ITALIC_BYTES.to_vec())
-            .expect("Failed to load FiraSans Italic font");
+        let editor_font_italic =
+            Font::from_bytes(FIRA_SANS_ITALIC_BYTES.to_vec(), "Fira Sans Italic");
         let editor_font_italic_handle = fonts.add(editor_font_italic);
 
         // Also override Bevy's default font (AssetId::default()) so that ALL Text nodes
@@ -54,8 +52,8 @@ pub fn icon(icon: Icon, size: f32, font: Handle<Font>) -> impl Bundle {
     (
         Text::new(String::from(icon.unicode())),
         TextFont {
-            font,
-            font_size: size,
+            font: font.into(),
+            font_size: size.into(),
             ..Default::default()
         },
     )
@@ -66,8 +64,8 @@ pub fn icon_colored(icon: Icon, size: f32, font: Handle<Font>, color: Color) -> 
     (
         Text::new(String::from(icon.unicode())),
         TextFont {
-            font,
-            font_size: size,
+            font: font.into(),
+            font_size: size.into(),
             ..Default::default()
         },
         TextColor(color),

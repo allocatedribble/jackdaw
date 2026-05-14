@@ -6,6 +6,9 @@ use bevy::{
         reflect::{AppTypeRegistry, ReflectComponent},
     },
     prelude::*,
+    world_serialization::{
+        DynamicEntity, DynamicWorld as DynamicScene, DynamicWorldBuilder as DynamicSceneBuilder,
+    },
 };
 use serde::de::DeserializeSeed;
 
@@ -521,17 +524,6 @@ impl EditorCommand for DespawnEntity {
     }
 }
 
-/// Create a `DynamicSceneBuilder` that excludes computed components which become
-/// stale when restored (Children references dead mesh entities, visibility flags
-/// block rendering).
-pub(crate) fn filtered_scene_builder(world: &World) -> DynamicSceneBuilder<'_> {
-    DynamicSceneBuilder::from_world(world)
-        .deny_component::<Children>()
-        .deny_component::<GlobalTransform>()
-        .deny_component::<InheritedVisibility>()
-        .deny_component::<ViewVisibility>()
-}
-
 /// Deselect the given entities: remove the `Selected` component and purge them
 /// from the `Selection` resource.  Must be called **before** despawning so that
 /// observers can clean up tree-row UI while the entities still exist.
@@ -549,7 +541,13 @@ pub(crate) fn deselect_entities(world: &mut World, entities: &[Entity]) {
 pub(crate) fn snapshot_entity(world: &World, entity: Entity) -> DynamicScene {
     let mut entities = Vec::new();
     collect_entity_ids(world, entity, &mut entities);
-    filtered_scene_builder(world)
+    let registry = world.resource::<AppTypeRegistry>();
+    let registry = registry.read();
+    DynamicSceneBuilder::from_world(world, &registry)
+        .deny_component::<Children>()
+        .deny_component::<GlobalTransform>()
+        .deny_component::<InheritedVisibility>()
+        .deny_component::<ViewVisibility>()
         .extract_entities(entities.into_iter())
         .build()
 }
@@ -579,7 +577,7 @@ pub(crate) fn snapshot_rebuild(scene: &DynamicScene) -> DynamicScene {
         entities: scene
             .entities
             .iter()
-            .map(|e| bevy::scene::DynamicEntity {
+            .map(|e| DynamicEntity {
                 entity: e.entity,
                 components: e.components.iter().map(|c| c.to_dynamic()).collect(),
             })

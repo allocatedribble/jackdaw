@@ -145,8 +145,8 @@ fn spawn_item(
                     // Path
                     Text(path),
                     TextFont {
-                        font: font.0.clone(),
-                        font_size: tokens::TEXT_SIZE_SM,
+                        font: (font.0.clone()).into(),
+                        font_size: (tokens::TEXT_SIZE_SM).into(),
                         ..default()
                     },
                     TextColor(tokens::TEXT_SECONDARY)

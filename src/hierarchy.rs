@@ -1,6 +1,11 @@
 use std::collections::HashSet;
 
-use bevy::{input_focus::InputFocus, prelude::*, ui::ui_transform::UiGlobalTransform};
+use bevy::{
+    input_focus::{FocusCause, InputFocus},
+    prelude::*,
+    ui::ui_transform::UiGlobalTransform,
+    world_serialization::WorldAssetRoot as SceneRoot,
+};
 use bevy_enhanced_input::prelude::{Press, *};
 use bevy_monitors::prelude::{Mutation, NotifyChanged};
 use jackdaw_api::prelude::*;
@@ -1250,6 +1255,8 @@ struct RestoreLabel {
 }
 
 impl Command for RestoreLabel {
+    type Out = ();
+
     fn apply(self, world: &mut World) {
         let Ok(mut ec) = world.get_entity_mut(self.label_entity) else {
             return;
@@ -1364,8 +1371,8 @@ fn auto_focus_inline_rename(
             if let Ok(wrapper_kids) = wrapper_children.get(child) {
                 for wk in wrapper_kids.iter() {
                     if editor_text_edits.contains(wk) {
-                        if input_focus.0 != Some(wk) {
-                            input_focus.0 = Some(wk);
+                        if input_focus.get() != Some(wk) {
+                            input_focus.set(wk, FocusCause::Navigated);
                         }
                         return;
                     }
@@ -1568,10 +1575,8 @@ fn style_game_spawned_rows(
                     if !label_q.contains(maybe_label) {
                         continue;
                     }
-                    if let Ok(mut tf) = text_fonts.get_mut(maybe_label)
-                        && tf.font != italic_font.0
-                    {
-                        tf.font = italic_font.0.clone();
+                    if let Ok(mut tf) = text_fonts.get_mut(maybe_label) {
+                        tf.font = (italic_font.0.clone()).into();
                     }
                 }
             }

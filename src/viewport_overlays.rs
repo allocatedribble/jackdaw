@@ -497,7 +497,7 @@ fn ensure_axis_labels(
                     crate::NonSerializable,
                     Text::new(*letter),
                     TextFont {
-                        font_size: 14.0,
+                        font_size: (14.0).into(),
                         ..default()
                     },
                     TextColor(*color),
@@ -569,7 +569,10 @@ fn draw_coordinate_indicator(
     // it for the camera's fov so it occupies a stable on-screen
     // fraction; labels follow at the projected tip positions.
     for (computed, viewport_node, axis_labels) in &viewports {
-        let Ok((camera, cam_tf, projection)) = cameras.get(viewport_node.camera) else {
+        let Some(viewport_camera) = viewport_node.camera else {
+            continue;
+        };
+        let Ok((camera, cam_tf, projection)) = cameras.get(viewport_camera) else {
             continue;
         };
         let Projection::Perspective(proj) = projection else {
@@ -594,7 +597,7 @@ fn draw_coordinate_indicator(
         };
 
         for (link, mut tf, mut gtf, mut vis) in &mut indicators {
-            if link.camera != viewport_node.camera {
+            if link.camera != viewport_camera {
                 continue;
             }
             *tf = pose;

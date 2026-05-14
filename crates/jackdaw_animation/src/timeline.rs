@@ -361,7 +361,7 @@ fn spawn_placeholder(commands: &mut Commands, parent: Entity) {
         Text::new("No animation clip on selection. Pick a named entity and create one."),
         TextColor(tokens::TEXT_MUTED_COLOR.into()),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: tokens::FONT_SM.into(),
             ..default()
         },
         ChildOf(wrapper),
@@ -522,7 +522,7 @@ fn spawn_header(
         Text::new(format!("{cursor_time:.2}s")),
         TextColor(tokens::TEXT_SECONDARY),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: tokens::FONT_SM.into(),
             ..default()
         },
         Node {
@@ -718,7 +718,7 @@ fn spawn_ruler_ticks(commands: &mut Commands, ruler: Entity, timeline_col: Entit
                 Text::new(format!("{t:.2}s")),
                 TextColor(tokens::TEXT_MUTED_COLOR.into()),
                 TextFont {
-                    font_size: tokens::FONT_SM,
+                    font_size: tokens::FONT_SM.into(),
                     ..default()
                 },
             )],
@@ -827,7 +827,7 @@ fn spawn_track_label(
         Text::new(track.field_path.clone()),
         TextColor(tokens::TEXT_TERTIARY),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: tokens::FONT_SM.into(),
             ..default()
         },
         Node {

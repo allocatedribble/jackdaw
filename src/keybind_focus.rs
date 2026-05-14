@@ -33,7 +33,7 @@ impl KeybindFocus<'_, '_> {
     /// Used by gate predicates to refuse keyboard-driven operators
     /// while the user is editing a text field.
     pub fn is_typing(&self) -> bool {
-        let Some(focused) = self.input_focus.0 else {
+        let Some(focused) = self.input_focus.get() else {
             return false;
         };
         self.text_inputs.contains(focused)

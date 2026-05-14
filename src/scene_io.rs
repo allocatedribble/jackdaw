@@ -17,6 +17,7 @@ use bevy::{
     reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer},
     tasks::{AsyncComputeTaskPool, IoTaskPool, Task, futures_lite::future},
     window::{PrimaryWindow, RawHandleWrapper},
+    world_serialization::{WorldAssetRoot as SceneRoot, serde::WorldDeserializer},
 };
 use jackdaw_jsn::format::{JsnAssets, JsnEntity, JsnHeader, JsnMetadata, JsnScene};
 use rfd::{AsyncFileDialog, FileHandle};
@@ -1197,9 +1198,11 @@ fn finish_load_scene(world: &mut World, chosen: &std::path::Path) {
         let registry = world.resource::<AppTypeRegistry>().clone();
         let registry = registry.read();
 
-        use bevy::scene::serde::SceneDeserializer;
-        let scene_deserializer = SceneDeserializer {
+        let asset_server = world.resource::<AssetServer>().clone();
+        let mut asset_loader = asset_server;
+        let scene_deserializer = WorldDeserializer {
             type_registry: &registry,
+            load_from_path: &mut asset_loader,
         };
         let mut json_de = serde_json::Deserializer::from_str(&json);
         let scene = match scene_deserializer.deserialize(&mut json_de) {
@@ -1526,7 +1529,6 @@ pub fn spawn_default_lighting(world: &mut World) {
         .spawn((
             Name::new("Sun"),
             DirectionalLight {
-                shadows_enabled: true,
                 illuminance: 10000.0,
                 ..default()
             },

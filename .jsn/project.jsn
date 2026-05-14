@@ -1,0 +1,515 @@
+{
+  "jsn": {
+    "format_version": [
+      1,
+      0,
+      0
+    ],
+    "editor_version": "0.1.4",
+    "bevy_version": "0.18"
+  },
+  "project": {
+    "name": "jackdaw",
+    "description": "",
+    "layout": {
+      "active": "layout",
+      "workspaces": [
+        {
+          "accent_color": [
+            0.3499999940395355,
+            0.550000011920929,
+            1.0,
+            0.800000011920929
+          ],
+          "icon": "",
+          "id": "layout",
+          "name": "Main scene",
+          "tree": {
+            "next_id": 9,
+            "next_tab_id": 12,
+            "nodes": {
+              "0": {
+                "Leaf": {
+                  "active": 1,
+                  "area_id": "left",
+                  "persistent": true,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 1,
+                      "window_id": "jackdaw.hierarchy"
+                    },
+                    {
+                      "id": 2,
+                      "window_id": "jackdaw.import"
+                    }
+                  ]
+                }
+              },
+              "1": {
+                "Leaf": {
+                  "active": 4,
+                  "area_id": "center",
+                  "persistent": true,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 4,
+                      "window_id": "jackdaw.viewport"
+                    }
+                  ]
+                }
+              },
+              "2": {
+                "Leaf": {
+                  "active": 5,
+                  "area_id": "bottom_dock",
+                  "persistent": true,
+                  "style": "IconSidebar",
+                  "windows": [
+                    {
+                      "id": 5,
+                      "window_id": "jackdaw.assets"
+                    },
+                    {
+                      "id": 6,
+                      "window_id": "jackdaw.timeline"
+                    },
+                    {
+                      "id": 7,
+                      "window_id": "jackdaw.terminal"
+                    }
+                  ]
+                }
+              },
+              "3": {
+                "Leaf": {
+                  "active": 8,
+                  "area_id": "right_sidebar",
+                  "persistent": true,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 8,
+                      "window_id": "jackdaw.inspector.components"
+                    },
+                    {
+                      "id": 9,
+                      "window_id": "jackdaw.inspector.materials"
+                    },
+                    {
+                      "id": 10,
+                      "window_id": "jackdaw.inspector.resources"
+                    },
+                    {
+                      "id": 11,
+                      "window_id": "jackdaw.inspector.systems"
+                    }
+                  ]
+                }
+              },
+              "4": {
+                "Split": {
+                  "a": 1,
+                  "axis": "Vertical",
+                  "b": 2,
+                  "fraction": 0.800000011920929
+                }
+              },
+              "5": {
+                "Split": {
+                  "a": 4,
+                  "axis": "Horizontal",
+                  "b": 3,
+                  "fraction": 0.8500000238418579
+                }
+              },
+              "6": {
+                "Split": {
+                  "a": 8,
+                  "axis": "Horizontal",
+                  "b": 5,
+                  "fraction": 0.15000000596046448
+                }
+              },
+              "7": {
+                "Leaf": {
+                  "active": 12,
+                  "area_id": "split.jackdaw.project_files.7",
+                  "persistent": false,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 12,
+                      "window_id": "jackdaw.project_files"
+                    }
+                  ]
+                }
+              },
+              "8": {
+                "Split": {
+                  "a": 0,
+                  "axis": "Vertical",
+                  "b": 7,
+                  "fraction": 0.75
+                }
+              }
+            },
+            "root": 6
+          }
+        },
+        {
+          "accent_color": [
+            0.550000011920929,
+            0.8500000238418579,
+            0.44999998807907104,
+            0.800000011920929
+          ],
+          "icon": "",
+          "id": "level_design",
+          "name": "Level Design",
+          "tree": {
+            "next_id": 15,
+            "next_tab_id": 14,
+            "nodes": {
+              "0": {
+                "Leaf": {
+                  "active": 1,
+                  "area_id": "left",
+                  "persistent": true,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 1,
+                      "window_id": "jackdaw.hierarchy"
+                    },
+                    {
+                      "id": 2,
+                      "window_id": "jackdaw.import"
+                    }
+                  ]
+                }
+              },
+              "1": {
+                "Leaf": {
+                  "active": 3,
+                  "area_id": "split.jackdaw.project_files.preset",
+                  "persistent": false,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 3,
+                      "window_id": "jackdaw.project_files"
+                    }
+                  ]
+                }
+              },
+              "10": {
+                "Leaf": {
+                  "active": 8,
+                  "area_id": "bottom_dock",
+                  "persistent": true,
+                  "style": "IconSidebar",
+                  "windows": [
+                    {
+                      "id": 8,
+                      "window_id": "jackdaw.assets"
+                    },
+                    {
+                      "id": 9,
+                      "window_id": "jackdaw.timeline"
+                    },
+                    {
+                      "id": 10,
+                      "window_id": "jackdaw.terminal"
+                    }
+                  ]
+                }
+              },
+              "11": {
+                "Split": {
+                  "a": 9,
+                  "axis": "Vertical",
+                  "b": 10,
+                  "fraction": 0.75
+                }
+              },
+              "12": {
+                "Leaf": {
+                  "active": 11,
+                  "area_id": "right_sidebar",
+                  "persistent": true,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 11,
+                      "window_id": "jackdaw.inspector.components"
+                    },
+                    {
+                      "id": 12,
+                      "window_id": "jackdaw.inspector.materials"
+                    },
+                    {
+                      "id": 13,
+                      "window_id": "jackdaw.inspector.resources"
+                    },
+                    {
+                      "id": 14,
+                      "window_id": "jackdaw.inspector.systems"
+                    }
+                  ]
+                }
+              },
+              "13": {
+                "Split": {
+                  "a": 11,
+                  "axis": "Horizontal",
+                  "b": 12,
+                  "fraction": 0.8500000238418579
+                }
+              },
+              "14": {
+                "Split": {
+                  "a": 2,
+                  "axis": "Horizontal",
+                  "b": 13,
+                  "fraction": 0.15000000596046448
+                }
+              },
+              "2": {
+                "Split": {
+                  "a": 0,
+                  "axis": "Vertical",
+                  "b": 1,
+                  "fraction": 0.75
+                }
+              },
+              "3": {
+                "Leaf": {
+                  "active": 4,
+                  "area_id": "center",
+                  "persistent": true,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 4,
+                      "window_id": "jackdaw.viewport"
+                    }
+                  ]
+                }
+              },
+              "4": {
+                "Leaf": {
+                  "active": 5,
+                  "area_id": "split.jackdaw.viewport.qv_top",
+                  "persistent": false,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 5,
+                      "window_id": "jackdaw.viewport"
+                    }
+                  ]
+                }
+              },
+              "5": {
+                "Leaf": {
+                  "active": 6,
+                  "area_id": "split.jackdaw.viewport.qv_front",
+                  "persistent": false,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 6,
+                      "window_id": "jackdaw.viewport"
+                    }
+                  ]
+                }
+              },
+              "6": {
+                "Leaf": {
+                  "active": 7,
+                  "area_id": "split.jackdaw.viewport.qv_right",
+                  "persistent": false,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 7,
+                      "window_id": "jackdaw.viewport"
+                    }
+                  ]
+                }
+              },
+              "7": {
+                "Split": {
+                  "a": 3,
+                  "axis": "Horizontal",
+                  "b": 4,
+                  "fraction": 0.5
+                }
+              },
+              "8": {
+                "Split": {
+                  "a": 5,
+                  "axis": "Horizontal",
+                  "b": 6,
+                  "fraction": 0.5
+                }
+              },
+              "9": {
+                "Split": {
+                  "a": 7,
+                  "axis": "Vertical",
+                  "b": 8,
+                  "fraction": 0.5
+                }
+              }
+            },
+            "root": 14
+          }
+        },
+        {
+          "accent_color": [
+            0.8500000238418579,
+            0.550000011920929,
+            0.8500000238418579,
+            0.800000011920929
+          ],
+          "icon": "",
+          "id": "animation",
+          "name": "Animation",
+          "tree": {
+            "next_id": 9,
+            "next_tab_id": 6,
+            "nodes": {
+              "0": {
+                "Leaf": {
+                  "active": 1,
+                  "area_id": "left",
+                  "persistent": true,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 1,
+                      "window_id": "jackdaw.hierarchy"
+                    }
+                  ]
+                }
+              },
+              "1": {
+                "Leaf": {
+                  "active": 2,
+                  "area_id": "center",
+                  "persistent": true,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 2,
+                      "window_id": "jackdaw.viewport"
+                    }
+                  ]
+                }
+              },
+              "2": {
+                "Leaf": {
+                  "active": 3,
+                  "area_id": "split.jackdaw.viewport.anim_scene",
+                  "persistent": false,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 3,
+                      "window_id": "jackdaw.viewport"
+                    }
+                  ]
+                }
+              },
+              "3": {
+                "Split": {
+                  "a": 1,
+                  "axis": "Vertical",
+                  "b": 2,
+                  "fraction": 0.5
+                }
+              },
+              "4": {
+                "Leaf": {
+                  "active": 4,
+                  "area_id": "bottom_dock",
+                  "persistent": true,
+                  "style": "IconSidebar",
+                  "windows": [
+                    {
+                      "id": 4,
+                      "window_id": "jackdaw.timeline"
+                    },
+                    {
+                      "id": 5,
+                      "window_id": "jackdaw.assets"
+                    }
+                  ]
+                }
+              },
+              "5": {
+                "Split": {
+                  "a": 3,
+                  "axis": "Vertical",
+                  "b": 4,
+                  "fraction": 0.699999988079071
+                }
+              },
+              "6": {
+                "Leaf": {
+                  "active": 6,
+                  "area_id": "right_sidebar",
+                  "persistent": true,
+                  "style": "TabBar",
+                  "windows": [
+                    {
+                      "id": 6,
+                      "window_id": "jackdaw.inspector.components"
+                    }
+                  ]
+                }
+              },
+              "7": {
+                "Split": {
+                  "a": 5,
+                  "axis": "Horizontal",
+                  "b": 6,
+                  "fraction": 0.8500000238418579
+                }
+              },
+              "8": {
+                "Split": {
+                  "a": 0,
+                  "axis": "Horizontal",
+                  "b": 7,
+                  "fraction": 0.15000000596046448
+                }
+              }
+            },
+            "root": 8
+          }
+        },
+        {
+          "accent_color": [
+            0.800000011920929,
+            0.550000011920929,
+            0.3499999940395355,
+            0.800000011920929
+          ],
+          "icon": "",
+          "id": "debug",
+          "name": "Schedule Explorer",
+          "tree": {
+            "next_id": 0,
+            "next_tab_id": 0,
+            "nodes": {},
+            "root": null
+          }
+        }
+      ]
+    }
+  }
+}

@@ -266,8 +266,8 @@ fn spawn_dialog(
             header.with_child((
                 Text::new(title),
                 TextFont {
-                    font: font.clone(),
-                    font_size: TEXT_SIZE_XL,
+                    font: font.clone().into(),
+                    font_size: TEXT_SIZE_XL.into(),
                     weight: FontWeight::SEMIBOLD,
                     ..default()
                 },
@@ -279,8 +279,8 @@ fn spawn_dialog(
             header.with_child((
                 Text::new(desc),
                 TextFont {
-                    font: font.clone(),
-                    font_size: TEXT_SIZE_LG,
+                    font: font.clone().into(),
+                    font_size: TEXT_SIZE_LG.into(),
                     ..default()
                 },
                 TextColor(TEXT_MUTED_COLOR.into()),

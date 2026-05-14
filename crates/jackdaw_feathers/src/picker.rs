@@ -35,7 +35,6 @@ use bevy::ecs::relationship::RelatedSpawner;
 use bevy::ecs::system::SystemId;
 use bevy::ecs::world::DeferredWorld;
 use bevy::feathers::font_styles::InheritableFont;
-use bevy::feathers::handle_or_path::HandleOrPath;
 use bevy::feathers::theme::ThemedText;
 use bevy::input_focus::InputFocus;
 use bevy::input_focus::tab_navigation::{TabGroup, TabIndex};
@@ -63,7 +62,7 @@ impl<T: Matchable + Send + Sync + 'static> Pickable for T {}
 /// A picker, used for selecting from a list of items.
 /// Created by spawning an entity with the [`PickerProps`] component. See the [module docs](crate::picker) for more info
 #[derive(Component)]
-#[component(on_replace)]
+#[component(on_discard = Picker::on_replace)]
 pub struct Picker {
     dismissible: bool,
     matcher: FuzzyMatcher<Item>,
@@ -237,7 +236,7 @@ impl<T: Pickable> PickerProps<T> {
                         width: percent(100),
                         ..default()
                     },
-                    Children::spawn(SpawnWith(|spawner: &mut RelatedSpawner<ChildOf>| {
+                    Children::spawn(SpawnWith(move |spawner: &mut RelatedSpawner<ChildOf>| {
                         spawner.spawn((
                             Node {
                                 flex_grow: 1.0,
@@ -247,8 +246,8 @@ impl<T: Pickable> PickerProps<T> {
                             children![(
                                 Text(title),
                                 TextFont {
-                                    font,
-                                    font_size: tokens::TEXT_SIZE_XL,
+                                    font: font.clone().into(),
+                                    font_size: tokens::TEXT_SIZE_XL.into(),
                                     weight: FontWeight::SEMIBOLD,
                                     ..default()
                                 }
@@ -418,7 +417,7 @@ fn scroll_to_picker_item(
         return;
     };
 
-    let Some(focused) = focus.0 else {
+    let Some(focused) = focus.get() else {
         return;
     };
 
@@ -527,8 +526,9 @@ impl MatchText {
         let font = world.resource::<EditorFont>().0.clone();
         let mut commands = world.commands();
         commands.entity(ctx.entity).insert(InheritableFont {
-            font: HandleOrPath::Handle(font),
-            font_size: tokens::TEXT_SIZE,
+            font,
+            font_size: tokens::TEXT_SIZE.into(),
+            weight: FontWeight::NORMAL,
         });
     }
 }

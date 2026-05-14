@@ -418,7 +418,7 @@ pub(crate) fn axis_view_keys(
     input_focus: Res<bevy::input_focus::InputFocus>,
     mut commands: Commands,
 ) {
-    if modal.active.is_some() || input_focus.0.is_some() {
+    if modal.active.is_some() || input_focus.get().is_some() {
         return;
     }
 

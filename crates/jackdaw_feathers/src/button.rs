@@ -546,8 +546,8 @@ fn setup_button(
                     parent.spawn((
                         Text::new(icon.unicode()),
                         TextFont {
-                            font: icon_font_handle.clone(),
-                            font_size: size.icon_size(),
+                            font: icon_font_handle.clone().into(),
+                            font_size: size.icon_size().into(),
                             ..default()
                         },
                         TextColor(variant.text_color().into()),
@@ -565,8 +565,8 @@ fn setup_button(
                         ButtonContentText,
                         Text::new(&content),
                         TextFont {
-                            font: font.clone(),
-                            font_size: TEXT_SIZE,
+                            font: font.clone().into(),
+                            font_size: TEXT_SIZE.into(),
                             weight: FontWeight::MEDIUM,
                             ..default()
                         },
@@ -582,8 +582,8 @@ fn setup_button(
                     parent.spawn((
                         Text::new(subtitle),
                         TextFont {
-                            font: font.clone(),
-                            font_size: TEXT_SIZE_SM,
+                            font: font.clone().into(),
+                            font_size: TEXT_SIZE_SM.into(),
                             ..default()
                         },
                         TextColor(TEXT_MUTED_COLOR.into()),
@@ -598,8 +598,8 @@ fn setup_button(
                     parent.spawn((
                         Text::new(icon.unicode()),
                         TextFont {
-                            font: icon_font_handle.clone(),
-                            font_size: size.icon_size(),
+                            font: icon_font_handle.clone().into(),
+                            font_size: size.icon_size().into(),
                             ..default()
                         },
                         TextColor(variant.text_color().into()),
@@ -636,7 +636,7 @@ fn handle_hover(
             continue;
         };
 
-        let is_hovered = hovered.get() || focus.0 == Some(entity);
+        let is_hovered = hovered.get() || focus.get() == Some(entity);
         bg.0 = variant
             .bg_color(is_hovered)
             .with_alpha(variant.bg_opacity(is_hovered))
@@ -698,8 +698,8 @@ pub fn icon_button(props: IconButtonProps, icon_font: &Handle<Font>) -> impl Bun
         children![(
             Text::new(icon.unicode()),
             TextFont {
-                font: icon_font.clone(),
-                font_size: size.icon_size(),
+                font: icon_font.clone().into(),
+                font_size: size.icon_size().into(),
                 ..default()
             },
             TextColor(Color::Srgba(icon_color)),

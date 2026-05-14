@@ -1,7 +1,6 @@
 pub mod ast;
 pub mod editor_meta;
 pub mod format;
-mod loader;
 pub mod mesh_rebuild;
 pub mod types;
 
@@ -19,7 +18,6 @@ pub use jackdaw_geometry;
 
 pub use ast::SceneJsnAst;
 pub use format::{JsnProject, JsnProjectConfig, JsnScene};
-pub use loader::JsnAssetLoader;
 
 pub struct JsnPlugin {
     /// Whether to run the built-in runtime mesh rebuild for brushes.
@@ -47,8 +45,7 @@ impl Plugin for JsnPlugin {
             .register_type::<GltfSource>()
             .register_type::<JsnPrefab>()
             .register_type::<NavmeshRegion>()
-            .register_type::<Terrain>()
-            .init_asset_loader::<JsnAssetLoader>();
+            .register_type::<Terrain>();
         if self.runtime_mesh_rebuild {
             app.add_plugins(mesh_rebuild::MeshRebuildPlugin);
         }

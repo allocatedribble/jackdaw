@@ -644,8 +644,9 @@ fn update_active_viewport(
                 && cursor.x <= bottom_right.x
                 && cursor.y >= top_left.y
                 && cursor.y <= bottom_right.y
+                && let Some(camera) = vp_node.camera
             {
-                hovered = Some((ui_entity, vp_node.camera));
+                hovered = Some((ui_entity, camera));
                 break;
             }
         }
@@ -664,7 +665,7 @@ fn update_active_viewport(
     }
 
     let modal_active = modal.active.is_some();
-    let text_focused = input_focus.0.is_some();
+    let text_focused = input_focus.get().is_some();
     let overlay_blocking = !blockers.is_empty();
     let inputs_clear = !modal_active && !text_focused && !overlay_blocking;
 

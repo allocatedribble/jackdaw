@@ -1,4 +1,12 @@
-use bevy::{picking::hover::Hovered, prelude::*, ui_widgets::observe};
+use bevy::{
+    app::AppExit,
+    feathers::cursor::EntityCursor,
+    math::CompassOctant,
+    picking::{events::Press as PointerPress, hover::Hovered, pointer::PointerButton},
+    prelude::*,
+    ui_widgets::observe,
+    window::{PrimaryWindow, SystemCursorIcon},
+};
 use jackdaw_api::prelude::*;
 use jackdaw_feathers::{
     button::{self, ButtonOperatorCall, ButtonSize, ButtonVariant},
@@ -107,6 +115,27 @@ pub struct HierarchyFilter;
 #[derive(Component)]
 pub struct Toolbar;
 
+#[derive(Resource, Default)]
+pub(crate) struct WindowDecorationState {
+    maximized: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum WindowControlAction {
+    Minimize,
+    ToggleMaximize,
+    Close,
+}
+
+#[derive(Component)]
+pub(crate) struct WindowControlButton(WindowControlAction);
+
+#[derive(Component)]
+pub(crate) struct TitlebarDragRegion;
+
+#[derive(Component)]
+pub(crate) struct WindowResizeRegion(CompassOctant);
+
 pub fn editor_layout(icon_font: &IconFont) -> impl Bundle {
     (
         EditorEntity,
@@ -117,106 +146,109 @@ pub fn editor_layout(icon_font: &IconFont) -> impl Bundle {
             height: percent(100),
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center,
-            padding: UiRect::all(px(tokens::PANEL_GAP)),
+            padding: UiRect::all(px(0.0)),
             ..Default::default()
         },
-        children![(
-            // Inner container: the editor workspace with rounded corners and border.
-            EditorEntity,
-            Node {
-                width: percent(100),
-                flex_grow: 1.0,
-                min_height: px(0.0),
-                flex_direction: FlexDirection::Column,
-                border: UiRect::all(px(1.0)),
-                border_radius: BorderRadius::all(px(8.0)),
-                overflow: Overflow::clip(),
-                ..Default::default()
-            },
-            BackgroundColor(tokens::WINDOW_BG),
-            BorderColor::all(tokens::BORDER_SUBTLE),
-            children![
-                // Integrated window header: menu bar + scene tabs + controls
-                window_header(icon_font.0.clone()),
-                // Content container (flex grow). Holds both workspaces.
-                // Figma: Editor (Rows) has padding: 0px 4px
-                (
-                    EditorEntity,
-                    Node {
-                        width: percent(100),
-                        flex_grow: 1.0,
-                        min_height: px(0.0),
-                        flex_direction: FlexDirection::Column,
-                        padding: UiRect::horizontal(px(tokens::PANEL_GAP)),
-                        row_gap: px(tokens::PANEL_GAP),
-                        ..Default::default()
-                    },
-                    children![
-                    // Scene document (visible by default).
-                    //
-                    // The dock tree is materialised by `jackdaw_panels`'
-                    // reconciler under this single host. The default
-                    // tree (left | (center over bottom) | right) is
-                    // built in `init_layout` from registered windows;
-                    // the user can drag panels anywhere within it.
+        children![
+            (
+                // Inner container: the editor workspace with rounded corners and border.
+                EditorEntity,
+                Node {
+                    width: percent(100),
+                    flex_grow: 1.0,
+                    min_height: px(0.0),
+                    flex_direction: FlexDirection::Column,
+                    border: UiRect::all(px(1.0)),
+                    border_radius: BorderRadius::all(px(8.0)),
+                    overflow: Overflow::clip(),
+                    ..Default::default()
+                },
+                BackgroundColor(tokens::WINDOW_BG),
+                BorderColor::all(tokens::BORDER_SUBTLE),
+                children![
+                    // Integrated app titlebar: menu bar + scene tabs + controls.
+                    window_header(icon_font.0.clone()),
+                    // Content container (flex grow). Holds both workspaces.
+                    // Figma: Editor (Rows) has padding: 0px 4px
                     (
-                        DocumentRoot(TabKind::Scene),
-                        EditorEntity,
-                        Node {
-                            width: percent(100),
-                            flex_grow: 1.0,
-                            min_height: px(0.0),
-                            display: Display::Flex,
-                            flex_direction: FlexDirection::Row,
-                            ..Default::default()
-                        },
-                        children![(
-                            jackdaw_panels::reconcile::DockTreeHost::default(),
-                            EditorEntity,
-                            Node {
-                                width: percent(100),
-                                height: percent(100),
-                                flex_direction: FlexDirection::Row,
-                                overflow: Overflow::clip(),
-                                ..Default::default()
-                            },
-                        )],
-                    ),
-                    // Schedule Explorer document (hidden by default).
-                    // Formerly the Remote Debug workspace; same content
-                    // repackaged as a document tab.
-                    (
-                        DocumentRoot(TabKind::ScheduleExplorer),
                         EditorEntity,
                         Node {
                             width: percent(100),
                             flex_grow: 1.0,
                             min_height: px(0.0),
                             flex_direction: FlexDirection::Column,
-                            display: Display::None,
+                            padding: UiRect::horizontal(px(tokens::PANEL_GAP)),
+                            row_gap: px(tokens::PANEL_GAP),
                             ..Default::default()
                         },
-                        split_panel::panel_group(
-                            0.2,
+                        children![
+                            // Scene document (visible by default).
+                            //
+                            // The dock tree is materialised by `jackdaw_panels`'
+                            // reconciler under this single host. The default
+                            // tree (left | (center over bottom) | right) is
+                            // built in `init_layout` from registered windows;
+                            // the user can drag panels anywhere within it.
                             (
-                                Spawn((
-                                    split_panel::panel(1),
-                                    crate::remote::entity_browser::remote_debug_workspace_content(),
-                                )),
-                                Spawn(split_panel::panel_handle()),
-                                Spawn((
-                                    split_panel::panel(1),
-                                    crate::remote::remote_inspector::remote_inspector(),
-                                )),
+                                DocumentRoot(TabKind::Scene),
+                                EditorEntity,
+                                Node {
+                                    width: percent(100),
+                                    flex_grow: 1.0,
+                                    min_height: px(0.0),
+                                    display: Display::Flex,
+                                    flex_direction: FlexDirection::Row,
+                                    ..Default::default()
+                                },
+                                children![(
+                                    jackdaw_panels::reconcile::DockTreeHost::default(),
+                                    EditorEntity,
+                                    Node {
+                                        width: percent(100),
+                                        height: percent(100),
+                                        flex_direction: FlexDirection::Row,
+                                        overflow: Overflow::clip(),
+                                        ..Default::default()
+                                    },
+                                )],
                             ),
-                        ),
-                    )
+                            // Schedule Explorer document (hidden by default).
+                            // Formerly the Remote Debug workspace; same content
+                            // repackaged as a document tab.
+                            (
+                                DocumentRoot(TabKind::ScheduleExplorer),
+                                EditorEntity,
+                                Node {
+                                    width: percent(100),
+                                    flex_grow: 1.0,
+                                    min_height: px(0.0),
+                                    flex_direction: FlexDirection::Column,
+                                    display: Display::None,
+                                    ..Default::default()
+                                },
+                                split_panel::panel_group(
+                                    0.2,
+                                    (
+                                        Spawn((
+                                            split_panel::panel(1),
+                                            crate::remote::entity_browser::remote_debug_workspace_content(),
+                                        )),
+                                        Spawn(split_panel::panel_handle()),
+                                        Spawn((
+                                            split_panel::panel(1),
+                                            crate::remote::remote_inspector::remote_inspector(),
+                                        )),
+                                    ),
+                                ),
+                            )
+                        ],
+                    ),
+                    // Status bar (fixed height) with connection indicator
+                    editor_status_bar()
                 ],
-                ),
-                // Status bar (fixed height) with connection indicator
-                editor_status_bar()
-            ],
-        )],
+            ),
+            window_resize_handles(),
+        ],
     )
 }
 
@@ -272,23 +304,30 @@ fn window_header(icon_font: Handle<Font>) -> impl Bundle {
             // Flexible spacer; absorbs leftover horizontal space
             // between the left group and the right group.
             (
+                TitlebarDragRegion,
                 EditorEntity,
                 Node {
                     flex_grow: 1.0,
+                    height: percent(100),
                     ..Default::default()
                 },
+                BackgroundColor(Color::NONE),
             ),
-            // Right: Scene View combobox + Play/Pause transport.
+            // Right: Play/Pause transport + window controls.
             (
                 EditorEntity,
                 Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    padding: UiRect::horizontal(px(tokens::SPACING_MD)),
+                    height: percent(100),
+                    padding: UiRect::left(px(tokens::SPACING_MD)),
                     column_gap: px(6.0),
                     ..Default::default()
                 },
-                children![play_pause_controls(icon_font),],
+                children![
+                    play_pause_controls(icon_font.clone()),
+                    window_controls(icon_font),
+                ],
             ),
         ],
     )
@@ -344,14 +383,377 @@ fn pie_transport_button(
         children![(
             Text::new(String::from(icon.unicode())),
             TextFont {
-                font: icon_font,
-                font_size: 13.0,
+                font: (icon_font).into(),
+                font_size: (13.0).into(),
                 ..Default::default()
             },
             TextColor(tokens::HEADER_CONTROL_LABEL),
             Pickable::IGNORE,
         )],
     )
+}
+
+pub(crate) fn app_window_titlebar(icon_font: Handle<Font>) -> impl Bundle {
+    (
+        EditorEntity,
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(0.0),
+            top: px(0.0),
+            width: percent(100),
+            height: px(34.0),
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Center,
+            border: UiRect::bottom(px(1.0)),
+            ..Default::default()
+        },
+        BackgroundColor(tokens::WINDOW_BG),
+        BorderColor::all(tokens::BORDER_SUBTLE),
+        ZIndex(1000),
+        children![
+            (
+                TitlebarDragRegion,
+                EditorEntity,
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    align_items: AlignItems::Center,
+                    height: percent(100),
+                    flex_grow: 1.0,
+                    min_width: px(0.0),
+                    padding: UiRect::left(px(tokens::SPACING_MD)),
+                    column_gap: px(tokens::SPACING_SM),
+                    ..Default::default()
+                },
+                BackgroundColor(Color::NONE),
+                children![
+                    (
+                        Text::new(String::from(Icon::AppWindow.unicode())),
+                        TextFont {
+                            font: (icon_font.clone()).into(),
+                            font_size: (14.0).into(),
+                            ..Default::default()
+                        },
+                        TextColor(tokens::TEXT_SECONDARY),
+                        Pickable::IGNORE,
+                    ),
+                    (
+                        Text::new("jackdaw"),
+                        TextFont {
+                            font_size: (tokens::FONT_MD).into(),
+                            ..Default::default()
+                        },
+                        TextColor(tokens::TEXT_PRIMARY),
+                        Pickable::IGNORE,
+                    ),
+                ],
+            ),
+            window_controls(icon_font),
+        ],
+    )
+}
+
+fn window_controls(icon_font: Handle<Font>) -> impl Bundle {
+    (
+        EditorEntity,
+        Node {
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Center,
+            height: percent(100),
+            flex_shrink: 0.0,
+            ..Default::default()
+        },
+        ZIndex(1000),
+        children![
+            window_control_button(
+                WindowControlAction::Minimize,
+                Icon::Minus,
+                icon_font.clone()
+            ),
+            window_control_button(
+                WindowControlAction::ToggleMaximize,
+                Icon::Maximize2,
+                icon_font.clone(),
+            ),
+            window_control_button(WindowControlAction::Close, Icon::X, icon_font),
+        ],
+    )
+}
+
+fn window_control_button(
+    action: WindowControlAction,
+    icon: Icon,
+    icon_font: Handle<Font>,
+) -> impl Bundle {
+    (
+        Button,
+        WindowControlButton(action),
+        EditorEntity,
+        Node {
+            width: px(42.0),
+            height: percent(100),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..Default::default()
+        },
+        BackgroundColor(Color::NONE),
+        children![(
+            Text::new(String::from(icon.unicode())),
+            TextFont {
+                font: (icon_font).into(),
+                font_size: (13.0).into(),
+                ..Default::default()
+            },
+            TextColor(tokens::TEXT_SECONDARY),
+            Pickable::IGNORE,
+        )],
+    )
+}
+
+pub(crate) fn window_resize_handles() -> impl Bundle {
+    const EDGE: f32 = 6.0;
+    const CORNER: f32 = 14.0;
+
+    (
+        EditorEntity,
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(0.0),
+            top: px(0.0),
+            width: percent(100),
+            height: percent(100),
+            ..Default::default()
+        },
+        Pickable::IGNORE,
+        ZIndex(900),
+        children![
+            window_resize_handle(
+                CompassOctant::North,
+                SystemCursorIcon::NResize,
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(CORNER),
+                    right: px(CORNER),
+                    top: px(0.0),
+                    height: px(EDGE),
+                    ..Default::default()
+                },
+            ),
+            window_resize_handle(
+                CompassOctant::South,
+                SystemCursorIcon::SResize,
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(CORNER),
+                    right: px(CORNER),
+                    bottom: px(0.0),
+                    height: px(EDGE),
+                    ..Default::default()
+                },
+            ),
+            window_resize_handle(
+                CompassOctant::East,
+                SystemCursorIcon::EResize,
+                Node {
+                    position_type: PositionType::Absolute,
+                    right: px(0.0),
+                    top: px(CORNER),
+                    bottom: px(CORNER),
+                    width: px(EDGE),
+                    ..Default::default()
+                },
+            ),
+            window_resize_handle(
+                CompassOctant::West,
+                SystemCursorIcon::WResize,
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0.0),
+                    top: px(CORNER),
+                    bottom: px(CORNER),
+                    width: px(EDGE),
+                    ..Default::default()
+                },
+            ),
+            window_resize_handle(
+                CompassOctant::NorthEast,
+                SystemCursorIcon::NeResize,
+                Node {
+                    position_type: PositionType::Absolute,
+                    right: px(0.0),
+                    top: px(0.0),
+                    width: px(CORNER),
+                    height: px(CORNER),
+                    ..Default::default()
+                },
+            ),
+            window_resize_handle(
+                CompassOctant::NorthWest,
+                SystemCursorIcon::NwResize,
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0.0),
+                    top: px(0.0),
+                    width: px(CORNER),
+                    height: px(CORNER),
+                    ..Default::default()
+                },
+            ),
+            window_resize_handle(
+                CompassOctant::SouthEast,
+                SystemCursorIcon::SeResize,
+                Node {
+                    position_type: PositionType::Absolute,
+                    right: px(0.0),
+                    bottom: px(0.0),
+                    width: px(CORNER),
+                    height: px(CORNER),
+                    ..Default::default()
+                },
+            ),
+            window_resize_handle(
+                CompassOctant::SouthWest,
+                SystemCursorIcon::SwResize,
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: px(0.0),
+                    bottom: px(0.0),
+                    width: px(CORNER),
+                    height: px(CORNER),
+                    ..Default::default()
+                },
+            ),
+        ],
+    )
+}
+
+fn window_resize_handle(
+    direction: CompassOctant,
+    cursor: SystemCursorIcon,
+    node: Node,
+) -> impl Bundle {
+    (
+        WindowResizeRegion(direction),
+        EditorEntity,
+        node,
+        BackgroundColor(Color::NONE),
+        EntityCursor::System(cursor),
+    )
+}
+
+pub(crate) fn handle_window_control_click(
+    mut click: On<Pointer<Click>>,
+    controls: Query<&WindowControlButton>,
+    mut windows: Query<&mut Window, With<PrimaryWindow>>,
+    mut decoration: ResMut<WindowDecorationState>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    let Ok(control) = controls.get(click.event_target()) else {
+        return;
+    };
+    if click.button != PointerButton::Primary {
+        return;
+    }
+
+    click.propagate(false);
+    match control.0 {
+        WindowControlAction::Minimize => {
+            if let Ok(mut window) = windows.single_mut() {
+                window.set_minimized(true);
+            }
+        }
+        WindowControlAction::ToggleMaximize => {
+            if let Ok(mut window) = windows.single_mut() {
+                decoration.maximized = !decoration.maximized;
+                window.set_maximized(decoration.maximized);
+            }
+        }
+        WindowControlAction::Close => {
+            exit.write(AppExit::Success);
+        }
+    }
+}
+
+pub(crate) fn handle_window_control_over(
+    over: On<Pointer<Over>>,
+    controls: Query<&WindowControlButton>,
+    mut backgrounds: Query<&mut BackgroundColor>,
+) {
+    let Ok(control) = controls.get(over.event_target()) else {
+        return;
+    };
+    let Ok(mut background) = backgrounds.get_mut(over.event_target()) else {
+        return;
+    };
+
+    background.0 = match control.0 {
+        WindowControlAction::Close => Color::srgb(0.78, 0.16, 0.18),
+        _ => tokens::HOVER_BG,
+    };
+}
+
+pub(crate) fn handle_window_control_out(
+    out: On<Pointer<Out>>,
+    controls: Query<&WindowControlButton>,
+    mut backgrounds: Query<&mut BackgroundColor>,
+) {
+    if controls.get(out.event_target()).is_ok()
+        && let Ok(mut background) = backgrounds.get_mut(out.event_target())
+    {
+        background.0 = Color::NONE;
+    }
+}
+
+pub(crate) fn handle_titlebar_drag_press(
+    mut press: On<Pointer<PointerPress>>,
+    regions: Query<(), With<TitlebarDragRegion>>,
+    mut windows: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    if press.button != PointerButton::Primary || !regions.contains(press.event_target()) {
+        return;
+    }
+
+    press.propagate(false);
+    if let Ok(mut window) = windows.single_mut() {
+        window.start_drag_move();
+    }
+}
+
+pub(crate) fn handle_titlebar_double_click(
+    mut click: On<Pointer<Click>>,
+    regions: Query<(), With<TitlebarDragRegion>>,
+    mut windows: Query<&mut Window, With<PrimaryWindow>>,
+    mut decoration: ResMut<WindowDecorationState>,
+) {
+    if click.button != PointerButton::Primary
+        || click.count < 2
+        || !regions.contains(click.event_target())
+    {
+        return;
+    }
+
+    click.propagate(false);
+    if let Ok(mut window) = windows.single_mut() {
+        decoration.maximized = !decoration.maximized;
+        window.set_maximized(decoration.maximized);
+    }
+}
+
+pub(crate) fn handle_window_resize_press(
+    mut press: On<Pointer<PointerPress>>,
+    regions: Query<&WindowResizeRegion>,
+    mut windows: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    let Ok(region) = regions.get(press.event_target()) else {
+        return;
+    };
+    if press.button != PointerButton::Primary {
+        return;
+    }
+
+    press.propagate(false);
+    if let Ok(mut window) = windows.single_mut() {
+        window.start_drag_resize(region.0);
+    }
 }
 
 /// Project Files panel. File tree browser.
@@ -560,8 +962,8 @@ pub fn hierarchy_content(icon_font: Handle<Font>) -> impl Bundle {
                         children![(
                             Text::new(String::from(Icon::Eye.unicode())),
                             TextFont {
-                                font: icon_font,
-                                font_size: 14.0,
+                                font: (icon_font).into(),
+                                font_size: (14.0).into(),
                                 ..Default::default()
                             },
                             TextColor(tokens::TEXT_SECONDARY),
@@ -610,8 +1012,8 @@ pub fn hierarchy_content(icon_font: Handle<Font>) -> impl Bundle {
                     (
                         Text::new(String::from(Icon::PackagePlus.unicode())),
                         TextFont {
-                            font: add_entity_icon_font,
-                            font_size: tokens::ICON_SM,
+                            font: (add_entity_icon_font).into(),
+                            font_size: (tokens::ICON_SM).into(),
                             ..Default::default()
                         },
                         TextColor(tokens::TEXT_PRIMARY),
@@ -619,7 +1021,7 @@ pub fn hierarchy_content(icon_font: Handle<Font>) -> impl Bundle {
                     (
                         Text::new("Add Entity"),
                         TextFont {
-                            font_size: tokens::TEXT_SIZE,
+                            font_size: (tokens::TEXT_SIZE).into(),
                             weight: FontWeight::MEDIUM,
                             ..Default::default()
                         },
@@ -645,11 +1047,11 @@ pub fn hierarchy_content(icon_font: Handle<Font>) -> impl Bundle {
                 crate::status_bar::SceneStatsText,
                 Text::new(""),
                 TextFont {
-                    font_size: tokens::FONT_SM,
+                    font_size: (tokens::FONT_SM).into(),
                     ..Default::default()
                 },
                 TextColor(tokens::TEXT_SECONDARY),
-                TextLayout::new_with_justify(Justify::Center),
+                TextLayout::justify(Justify::Center),
                 Node {
                     padding: UiRect::all(px(tokens::SPACING_XS)),
                     flex_shrink: 0.0,
@@ -830,7 +1232,7 @@ fn editor_status_bar() -> impl Bundle {
                 status_bar::StatusBarLeft,
                 Text::new("Ready"),
                 TextFont {
-                    font_size: tokens::FONT_SM,
+                    font_size: (tokens::FONT_SM).into(),
                     ..Default::default()
                 },
                 bevy::feathers::theme::ThemedText,
@@ -839,7 +1241,7 @@ fn editor_status_bar() -> impl Bundle {
                 status_bar::StatusBarCenter,
                 Text::new(""),
                 TextFont {
-                    font_size: tokens::FONT_SM,
+                    font_size: (tokens::FONT_SM).into(),
                     ..Default::default()
                 },
                 TextColor(tokens::TEXT_SECONDARY),
@@ -857,7 +1259,7 @@ fn editor_status_bar() -> impl Bundle {
                         status_bar::StatusBarRight,
                         Text::new(""),
                         TextFont {
-                            font_size: tokens::FONT_SM,
+                            font_size: (tokens::FONT_SM).into(),
                             ..Default::default()
                         },
                         TextColor(tokens::TEXT_SECONDARY),
@@ -930,8 +1332,8 @@ pub fn inspector_components_content(icon_font: Handle<Font>) -> impl Bundle {
                             (
                                 Text::new(String::from(Icon::PackagePlus.unicode())),
                                 TextFont {
-                                    font: icon_font,
-                                    font_size: tokens::ICON_SM,
+                                    font: (icon_font).into(),
+                                    font_size: (tokens::ICON_SM).into(),
                                     ..Default::default()
                                 },
                                 TextColor(tokens::TEXT_PRIMARY),
@@ -939,7 +1341,7 @@ pub fn inspector_components_content(icon_font: Handle<Font>) -> impl Bundle {
                             (
                                 Text::new("Add Component"),
                                 TextFont {
-                                    font_size: tokens::TEXT_SIZE,
+                                    font_size: (tokens::TEXT_SIZE).into(),
                                     weight: FontWeight::MEDIUM,
                                     ..Default::default()
                                 },

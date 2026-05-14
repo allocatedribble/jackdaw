@@ -255,7 +255,7 @@ fn on_drag_move(
                     children![(
                         Text::new(window_name.clone()),
                         TextFont {
-                            font_size: 11.0,
+                            font_size: 11.0.into(),
                             ..default()
                         },
                         TextColor(tokens::TEXT_PRIMARY),

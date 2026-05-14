@@ -199,7 +199,7 @@ pub(crate) fn handle_viewport_click(
     let local_cursor = cursor_pos - vp_top_left;
 
     // Clear input focus so keyboard shortcuts (G/R/S) work after viewport click
-    input_focus.0 = None;
+    input_focus.clear();
 
     let Some((camera, cam_tf)) = vp.camera() else {
         return;

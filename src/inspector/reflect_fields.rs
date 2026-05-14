@@ -282,7 +282,7 @@ fn spawn_field_row(
         commands.spawn((
             Text::new(format!("{name}:")),
             TextFont {
-                font_size: tokens::FONT_SM,
+                font_size: (tokens::FONT_SM).into(),
                 ..Default::default()
             },
             Node {
@@ -890,7 +890,7 @@ fn spawn_vec3_row(
     commands.spawn((
         Text::new(name),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_TERTIARY),
@@ -974,7 +974,7 @@ fn spawn_vec2_row(
     commands.spawn((
         Text::new(name),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_TERTIARY),
@@ -1056,7 +1056,7 @@ fn spawn_vec4_row(
     commands.spawn((
         Text::new(name),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_TERTIARY),
@@ -1185,8 +1185,8 @@ fn spawn_bool_toggle(
     commands.spawn((
         Text::new(format!("{name}:")),
         TextFont {
-            font: editor_font.clone(),
-            font_size: tokens::FONT_SM,
+            font: (editor_font.clone()).into(),
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TYPE_BOOL),
@@ -1236,7 +1236,7 @@ fn spawn_color_field(
     commands.spawn((
         Text::new(format!("{name}:")),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_TERTIARY),
@@ -1358,7 +1358,7 @@ fn spawn_numeric_field(
     commands.spawn((
         Text::new(label),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TYPE_NUMERIC),
@@ -1420,7 +1420,7 @@ fn spawn_editable_field(
     commands.spawn((
         Text::new(label),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_TERTIARY),
@@ -1514,7 +1514,7 @@ fn spawn_entity_link(commands: &mut Commands, parent: Entity, target: Entity, la
     commands.spawn((
         Text::new(label),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_ACCENT),
@@ -1661,7 +1661,7 @@ fn spawn_text_row(commands: &mut Commands, parent: Entity, text: &str, depth: us
         },
         Text::new(text),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: (tokens::FONT_SM).into(),
             ..Default::default()
         },
         ThemedText,
@@ -1913,7 +1913,7 @@ pub(crate) fn refresh_inspector_fields(world: &mut World) {
     drop(registry);
 
     // Apply numeric updates: find inner EditorTextEdit entity and use set_text_input_value
-    let input_focus = world.resource::<InputFocus>().0;
+    let input_focus = world.resource::<InputFocus>().get();
     for (outer_entity, value) in numeric_updates {
         // Walk: outer (TextEditConfig) → children → wrapper (TextEditWrapper) → inner entity
         let Some((wrapper_entity, inner_entity)) = find_text_edit_entities(world, outer_entity)
@@ -2097,7 +2097,7 @@ fn is_opaque_type(value: &dyn PartialReflect) -> bool {
 fn spawn_enum_field(
     commands: &mut Commands,
     parent: Entity,
-    enum_ref: &dyn bevy::reflect::Enum,
+    enum_ref: &dyn bevy::reflect::enums::Enum,
     depth: usize,
     field_path: String,
     source_entity: Entity,
@@ -2154,7 +2154,7 @@ fn spawn_enum_field(
     let all_unit = (0..enum_info.variant_len()).all(|i| {
         enum_info
             .variant_at(i)
-            .map(|v| matches!(v, bevy::reflect::VariantInfo::Unit(_)))
+            .map(|v| matches!(v, bevy::reflect::enums::VariantInfo::Unit(_)))
             .unwrap_or(false)
     });
 
@@ -2250,7 +2250,7 @@ pub(super) fn spawn_variant_contents(
     commands: &mut Commands,
     container: Entity,
     host: &super::EnumVariantHost,
-    enum_ref: &dyn bevy::reflect::Enum,
+    enum_ref: &dyn bevy::reflect::enums::Enum,
     entity_names: &Query<&Name>,
     type_registry: &AppTypeRegistry,
     editor_font: &Handle<Font>,
@@ -2404,7 +2404,7 @@ fn resolve_enum_info<'a>(
     type_path: &str,
     field_path: &str,
     registry: &'a bevy::reflect::TypeRegistry,
-) -> Option<&'a bevy::reflect::EnumInfo> {
+) -> Option<&'a bevy::reflect::enums::EnumInfo> {
     use bevy::reflect::TypeInfo;
 
     let mut current_reg = registry.get_with_type_path(type_path)?;
@@ -2434,11 +2434,13 @@ fn resolve_enum_info<'a>(
 /// default of the named enum variant. Returns `None` if any field type lacks
 /// `ReflectDefault`.
 fn build_variant_default_json(
-    enum_info: &bevy::reflect::EnumInfo,
+    enum_info: &bevy::reflect::enums::EnumInfo,
     variant_name: &str,
     registry: &bevy::reflect::TypeRegistry,
 ) -> Option<serde_json::Value> {
-    use bevy::reflect::{VariantInfo, prelude::ReflectDefault, serde::TypedReflectSerializer};
+    use bevy::reflect::{
+        enums::VariantInfo, prelude::ReflectDefault, serde::TypedReflectSerializer,
+    };
 
     let variant = enum_info.variant(variant_name)?;
 
