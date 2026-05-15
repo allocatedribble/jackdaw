@@ -9,8 +9,7 @@ mod marker;
 mod methods;
 mod plugin;
 
-// re-exported in Task 2
-// pub use marker::{DebugPanelEntry, ReflectDebugPanel, register_marker};
+pub use marker::{DebugPanelEntry, ReflectDebugPanel, register_marker};
 // re-exported in Task 4
 // pub use methods::DEBUG_PANEL_LIST_METHOD;
 // re-exported in Task 4
