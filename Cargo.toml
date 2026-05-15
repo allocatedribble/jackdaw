@@ -163,6 +163,7 @@ jackdaw_api_macros = { version = "0.4.1", path = "crates/jackdaw_api_macros" }
 jackdaw_dylib = { version = "0.4.1", path = "crates/jackdaw_dylib" }
 jackdaw_loader = { version = "0.4.1", path = "crates/jackdaw_loader" }
 jackdaw_sdk = { version = "0.4.1", path = "crates/jackdaw_sdk" }
+jackdaw_debug_panel = { version = "0.4.1", path = "crates/jackdaw_debug_panel" }
 jackdaw_rustc_wrapper = { version = "0.4.1", path = "crates/jackdaw_rustc_wrapper" }
 bevy_enhanced_input = { path = "../compat/bevy_enhanced_input-0.24.4" }
 rfd = "0.15"
