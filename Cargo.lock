@@ -4562,6 +4562,7 @@ dependencies = [
  "jackdaw_bsn",
  "jackdaw_camera",
  "jackdaw_commands",
+ "jackdaw_debug_panel",
  "jackdaw_feathers",
  "jackdaw_geometry",
  "jackdaw_jsn",

@@ -77,6 +77,7 @@ jackdaw_widgets.workspace = true
 jackdaw_commands.workspace = true
 jackdaw_terrain.workspace = true
 jackdaw_remote.workspace = true
+jackdaw_debug_panel.workspace = true
 jackdaw_node_graph.workspace = true
 jackdaw_animation.workspace = true
 jackdaw_avian_integration.workspace = true
