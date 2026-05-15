@@ -1796,6 +1796,7 @@ dependencies = [
  "naga",
  "nonmax",
  "offset-allocator",
+ "raw-window-handle",
  "send_wrapper",
  "smallvec",
  "thiserror 2.0.18",
