@@ -10,7 +10,5 @@ mod methods;
 mod plugin;
 
 pub use marker::{DebugPanelEntry, ReflectDebugPanel, register_marker};
-// re-exported in Task 4
-// pub use methods::DEBUG_PANEL_LIST_METHOD;
-// re-exported in Task 4
-// pub use plugin::JackdawDebugPanelPlugin;
+pub use methods::DEBUG_PANEL_LIST_METHOD;
+pub use plugin::JackdawDebugPanelPlugin;
