@@ -8,9 +8,12 @@ use bevy::asset::{
 };
 use bevy::ecs::reflect::AppTypeRegistry;
 use bevy::image::ImageLoaderSettings;
-use bevy::{prelude::*, world_serialization::{DynamicWorld, DynamicWorldRoot}};
 use bevy::reflect::serde::{ReflectDeserializerProcessor, TypedReflectDeserializer};
 use bevy::reflect::{TypeRegistration, TypeRegistry};
+use bevy::{
+    prelude::*,
+    world_serialization::{DynamicWorld, DynamicWorldRoot},
+};
 use jackdaw_bsn::JackdawBsnPlugin;
 use jackdaw_jsn::format::{JsnAssets, JsnCatalog, JsnScene, JsnSceneV2};
 use serde::Deserializer;
@@ -383,7 +386,9 @@ fn spawn_scene_entities(
         let label = format!("Scene{scene_index}");
         let full_path = format!("{resolved}#{label}");
         let scene_handle: Handle<DynamicWorld> = asset_server.load(full_path);
-        world.entity_mut(entity).insert(DynamicWorldRoot(scene_handle));
+        world
+            .entity_mut(entity)
+            .insert(DynamicWorldRoot(scene_handle));
     }
 }
 

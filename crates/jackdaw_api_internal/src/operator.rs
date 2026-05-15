@@ -476,7 +476,11 @@ impl<'a> OperatorCallBuilder<'a, World> {
             let Some(op) = world.get::<OperatorEntity>(op_entity).cloned() else {
                 return Err(CallOperatorError::UnknownId(id));
             };
-            if op.modal && active.get(world).is_ok_and(|active| active.is_modal_running()) {
+            if op.modal
+                && active
+                    .get(world)
+                    .is_ok_and(|active| active.is_modal_running())
+            {
                 return Err(CallOperatorError::ModalAlreadyActive(op.id));
             }
             let Some(check) = op.availability_check else {
@@ -538,9 +542,7 @@ fn is_op_running(
     world: &mut World,
     active: &mut SystemState<ActiveModalQuery>,
 ) -> bool {
-    active
-        .get(world)
-        .is_ok_and(|active| active.is_operator(id))
+    active.get(world).is_ok_and(|active| active.is_operator(id))
 }
 
 fn dispatch_operator(

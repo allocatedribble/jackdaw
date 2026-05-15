@@ -46,8 +46,8 @@ impl AssetLoader for BsnAssetLoader {
             .await
             .map_err(|error| BsnLoadError::Io(error.to_string()))?;
 
-        let text = std::str::from_utf8(&bytes)
-            .map_err(|error| BsnLoadError::Parse(error.to_string()))?;
+        let text =
+            std::str::from_utf8(&bytes).map_err(|error| BsnLoadError::Parse(error.to_string()))?;
         let scene = Parser::new(text).parse_scene()?;
 
         build_dynamic_world(&scene, &self.type_registry).map_err(BsnLoadError::Scene)
@@ -160,12 +160,7 @@ fn flatten_entity(entity: &BsnEntity, parent: Option<usize>, out: &mut Vec<FlatB
     }
 }
 
-fn apply_bare_patch(
-    world: &mut World,
-    entity: Entity,
-    type_path: &str,
-    registry: &TypeRegistry,
-) {
+fn apply_bare_patch(world: &mut World, entity: Entity, type_path: &str, registry: &TypeRegistry) {
     if let Some(registration) = resolve_registration(registry, type_path) {
         let Some(reflect_default) = registration.data::<ReflectDefault>() else {
             return;
@@ -174,7 +169,11 @@ fn apply_bare_patch(
             return;
         };
         let value = reflect_default.default();
-        reflect_component.insert(&mut world.entity_mut(entity), value.as_partial_reflect(), registry);
+        reflect_component.insert(
+            &mut world.entity_mut(entity),
+            value.as_partial_reflect(),
+            registry,
+        );
         return;
     }
 
@@ -195,7 +194,11 @@ fn apply_bare_patch(
     if let ReflectMut::Enum(enumeration) = value.reflect_mut() {
         enumeration.apply(&DynamicEnum::new(variant, DynamicVariant::Unit));
     }
-    reflect_component.insert(&mut world.entity_mut(entity), value.as_partial_reflect(), registry);
+    reflect_component.insert(
+        &mut world.entity_mut(entity),
+        value.as_partial_reflect(),
+        registry,
+    );
 }
 
 fn apply_data_patch(
@@ -312,9 +315,9 @@ impl Parser {
                 let name = match self.next() {
                     Token::Ident(name) | Token::String(name) => name,
                     other => {
-                        return Err(self.error(format!(
-                            "expected entity name after '#', found {other:?}"
-                        )));
+                        return Err(
+                            self.error(format!("expected entity name after '#', found {other:?}"))
+                        );
                     }
                 };
                 entity.patches.push(BsnPatch::Name(name));
@@ -419,9 +422,8 @@ impl Parser {
     fn parse_value(&mut self) -> Result<serde_json::Value, BsnLoadError> {
         match self.next() {
             Token::String(value) => Ok(serde_json::Value::String(value)),
-            Token::Number(raw) => parse_json_number(&raw).ok_or_else(|| {
-                self.error(format!("invalid number literal '{raw}'"))
-            }),
+            Token::Number(raw) => parse_json_number(&raw)
+                .ok_or_else(|| self.error(format!("invalid number literal '{raw}'"))),
             Token::Ident(value) if value == "true" => Ok(serde_json::Value::Bool(true)),
             Token::Ident(value) if value == "false" => Ok(serde_json::Value::Bool(false)),
             Token::Ident(first) => {

@@ -1,5 +1,7 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
+use std::path::PathBuf;
+
 use bevy::{
     asset::AssetPlugin,
     ecs::error::ErrorContext,
@@ -26,13 +28,21 @@ fn main() -> AppExit {
         std::process::exit(130);
     });
 
-    let project_root = jackdaw::project::read_last_project()
+    let requested_project = std::env::var_os("JACKDAW_PROJECT").map(PathBuf::from);
+    let last_project = jackdaw::project::read_last_project();
+    let project_root = requested_project
+        .clone()
+        .or_else(|| last_project.clone())
         .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
 
     // Picker is the default landing screen on every launch. The
     // user clicks the project they want from recents (or scaffolds
-    // a new one), which then triggers the build + handoff. Two
+    // a new one), which then triggers the build + handoff. Three
     // exceptions:
+    //
+    // - `JACKDAW_PROJECT=<path>`: agent/tool launch path. Opening
+    //   that exact project is implied and does not require
+    //   `JACKDAW_AUTO_OPEN`.
     //
     // - Respawn after a scaffold/install: the parent process did
     //   the build already, so we skip straight to the editor view
@@ -47,14 +57,20 @@ fn main() -> AppExit {
     // picker first lets the user explicitly choose to start that
     // build.
     let respawn_skip_build = std::env::var_os(jackdaw::restart::ENV_SKIP_INITIAL_BUILD).is_some();
-    let auto_open_opt_in = std::env::var_os("JACKDAW_AUTO_OPEN").is_some();
-    let auto_open = if respawn_skip_build {
-        jackdaw::project::read_last_project().map(|path| jackdaw::project_select::PendingAutoOpen {
+    let auto_open = if let Some(path) = requested_project {
+        Some(jackdaw::project_select::PendingAutoOpen {
             path,
             skip_build: true,
         })
-    } else if auto_open_opt_in {
-        jackdaw::project::read_last_project()
+    } else if respawn_skip_build {
+        last_project
+            .clone()
+            .map(|path| jackdaw::project_select::PendingAutoOpen {
+                path,
+                skip_build: true,
+            })
+    } else if std::env::var_os("JACKDAW_AUTO_OPEN").is_some() {
+        last_project
             .filter(|p| p.is_dir() && p.join("Cargo.toml").is_file())
             .map(|path| jackdaw::project_select::PendingAutoOpen {
                 path,
