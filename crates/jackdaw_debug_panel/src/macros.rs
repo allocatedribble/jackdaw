@@ -22,7 +22,7 @@ macro_rules! debug_panel {
                        $(,)? }
         ),* $(,)?
     }) => {{
-        let __app: &mut ::bevy::prelude::App = &mut $app;
+        let __app: &mut ::bevy::prelude::App = $app;
         $(
             __app.register_type::<$ty>();
             $crate::register_marker::<$ty>(
@@ -67,7 +67,7 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<AppTypeRegistry>();
 
-        crate::debug_panel!(app, {
+        crate::debug_panel!(&mut app, {
             AlphaSetting => { label: "Alpha" },
             BetaSetting  => { label: "Beta", order: 7, read_only: true },
         });

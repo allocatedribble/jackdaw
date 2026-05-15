@@ -4671,6 +4671,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jackdaw_debug_panel"
+version = "0.4.1"
+dependencies = [
+ "bevy",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "jackdaw_dylib"
 version = "0.4.1"
 dependencies = [

@@ -38,7 +38,7 @@ fn list_returns_sorted_opted_in_resources() {
     app.init_resource::<SettingsB>();
     app.init_resource::<Diagnostics>();
 
-    debug_panel!(app, {
+    debug_panel!(&mut app, {
         SettingsB   => { label: "Beta",  order: 10 },
         SettingsA   => { label: "Alpha", order:  0 },
         Diagnostics => { label: "Diag",  order: 90, read_only: true },
