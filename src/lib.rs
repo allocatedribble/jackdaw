@@ -14,6 +14,7 @@ pub mod clip_ops;
 pub mod command_palette;
 pub mod commands;
 pub mod custom_properties;
+pub mod debug_settings;
 pub mod default_style;
 pub mod draw_brush;
 pub mod edit_mode_ops;
@@ -291,6 +292,7 @@ impl Plugin for EditorCorePlugin {
             navmesh::NavmeshPlugin,
             terrain::TerrainPlugin,
             remote::RemoteConnectionPlugin,
+            debug_settings::DebugSettingsPlugin,
         ))
         .add_plugins(jackdaw_avian_integration::PhysicsOverlaysPlugin::<
             selection::Selected,
