@@ -552,7 +552,11 @@ fn spawn_layout(
     icon_font: Res<jackdaw_feathers::icons::IconFont>,
     editor_font: Res<jackdaw_feathers::icons::EditorFont>,
 ) {
-    commands.spawn((Camera2d, EditorEntity));
+    // Bevy auto-adds an `Msaa` component to every `Camera` via required
+    // components. Bevy's `MeshletPlugin` (used by Mirage when Jackdaw is
+    // embedded) validates Msaa on *every* extracted camera view, not
+    // just `Camera3d`, so this 2D UI camera must opt out too.
+    commands.spawn((Camera2d, EditorEntity, Msaa::Off));
     commands.spawn(layout::editor_layout(&icon_font, &editor_font));
 }
 

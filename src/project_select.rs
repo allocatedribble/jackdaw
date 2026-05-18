@@ -296,7 +296,11 @@ fn spawn_project_selector(
     // an opening project. Without this, the launcher window stays
     // fully blank for several minutes during a static-editor build
     // because the modal had no camera to draw on.
-    commands.spawn((ProjectSelectorRoot, Camera2d));
+    //
+    // `Msaa::Off` is required because Bevy auto-attaches `Msaa` to
+    // every camera, and `MeshletPlugin` (added by Mirage when Jackdaw
+    // is embedded) validates Msaa across all extracted camera views.
+    commands.spawn((ProjectSelectorRoot, Camera2d, Msaa::Off));
 
     if let Some(pending) = pending {
         let path = pending.path.clone();

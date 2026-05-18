@@ -188,6 +188,9 @@ pub fn create_entity(
                     is_active: false,
                     ..default()
                 },
+                // Required by Bevy's MeshletPlugin, which validates every
+                // Camera3d regardless of `is_active`.
+                Msaa::Off,
                 bevy::camera::RenderTarget::None {
                     size: UVec2::splat(1),
                 },

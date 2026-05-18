@@ -112,6 +112,10 @@ fn setup_material_preview_scene(
             clear_color: ClearColorConfig::Custom(default_style::MATERIAL_PREVIEW_BG),
             ..default()
         },
+        // Bevy's MeshletPlugin rejects any Camera3d that doesn't opt out
+        // of MSAA, regardless of `is_active`. Mirage embeds Jackdaw with
+        // meshlets on, so this camera must declare Msaa::Off at spawn.
+        Msaa::Off,
         // It may seem like this bit of code is duplicated in viewport.rs, but that is incidental
         // Since the user may have any number of material preview and viewport windows open, we cannot have a global resource for the current env map light
         // Instead, it should be per view. Ideally we should however have a global resource telling us about the *available* env map light textures!
