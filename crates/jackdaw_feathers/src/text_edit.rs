@@ -547,12 +547,12 @@ fn setup_text_edit_input(
                             children![(
                                 Text::new(glyph),
                                 TextFont {
-                                    font: glyph_font,
-                                    font_size: *size,
+                                    font: glyph_font.into(),
+                                    font_size: (*size).into(),
                                     ..default()
                                 },
                                 TextColor(text_color),
-                                TextLayout::new_with_justify(Justify::Center),
+                                TextLayout::justify(Justify::Center),
                             )],
                         ))
                         .id();

@@ -404,7 +404,7 @@ pub(crate) fn build_inspector_displays(
                         commands.spawn((
                             Text::new("Status: non-convex (collider forced to TriMesh)"),
                             TextFont {
-                                font_size: tokens::FONT_SM,
+                                font_size: tokens::FONT_SM.into(),
                                 ..Default::default()
                             },
                             TextColor(tokens::TEXT_DISABLED),

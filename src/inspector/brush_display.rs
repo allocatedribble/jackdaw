@@ -77,7 +77,7 @@ pub(super) fn spawn_brush_display(
     commands.spawn((
         Text::new("Topology"),
         TextFont {
-            font_size: tokens::FONT_SM,
+            font_size: tokens::FONT_SM.into(),
             ..Default::default()
         },
         TextColor(tokens::TEXT_SECONDARY),
@@ -94,7 +94,7 @@ pub(super) fn spawn_brush_display(
         commands.spawn((
             Text::new("Empty (legacy brush; will populate after migration)"),
             TextFont {
-                font_size: tokens::FONT_SM,
+                font_size: tokens::FONT_SM.into(),
                 ..Default::default()
             },
             TextColor(tokens::TEXT_DISABLED),
@@ -123,7 +123,7 @@ pub(super) fn spawn_brush_display(
             commands.spawn((
                 Text::new(*label),
                 TextFont {
-                    font_size: tokens::FONT_SM,
+                    font_size: tokens::FONT_SM.into(),
                     ..Default::default()
                 },
                 TextColor(tokens::TEXT_SECONDARY),
@@ -137,7 +137,7 @@ pub(super) fn spawn_brush_display(
             commands.spawn((
                 Text::new(count.to_string()),
                 TextFont {
-                    font_size: tokens::FONT_SM,
+                    font_size: tokens::FONT_SM.into(),
                     ..Default::default()
                 },
                 TextColor(tokens::TEXT_PRIMARY),

@@ -1339,6 +1339,7 @@ dependencies = [
  "bevy_ecs 0.19.0-dev",
  "bevy_gizmos",
  "bevy_image",
+ "bevy_log 0.19.0-dev",
  "bevy_math 0.19.0-dev",
  "bevy_mesh",
  "bevy_platform 0.19.0-dev",
