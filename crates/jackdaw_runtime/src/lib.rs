@@ -473,10 +473,9 @@ fn load_inline_assets(
             let handle = if type_path == "bevy_image::image::Image" {
                 if linear_image_names.contains(name) {
                     asset_server
-                        .load_with_settings::<Image, ImageLoaderSettings>(
-                            &resolved,
-                            |s: &mut ImageLoaderSettings| s.is_srgb = false,
-                        )
+                        .load_builder()
+                        .with_settings(|s: &mut ImageLoaderSettings| s.is_srgb = false)
+                        .load::<Image>(&resolved)
                         .untyped()
                 } else {
                     asset_server.load::<Image>(&resolved).untyped()
@@ -697,6 +696,7 @@ impl ReflectDeserializerProcessor for RuntimeDeserializerProcessor<'_> {
             };
             let handle = self
                 .asset_server
+                .load_builder()
                 .load_untyped(format!("{resolved}{label_part}"));
             return Ok(Ok(Box::new(handle).into_partial_reflect()));
         }

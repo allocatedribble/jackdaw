@@ -19,8 +19,11 @@ use jackdaw::project_select::PendingAutoOpen;
 
 fn main() -> AppExit {
     // Claim SIGINT/SIGTERM before wgpu/gilrs install their own
-    // handlers that swallow the signal.
-    let _ = ctrlc::set_handler(|| std::process::exit(130));
+    // handlers that swallow the signal. Skip this in graceful-
+    // shutdown mode so tests/profilers can exercise normal teardown.
+    if ShutdownMode::from_env().force_exits() {
+        let _ = ctrlc::set_handler(|| std::process::exit(130));
+    }
 
     // The launcher hands off via `JACKDAW_PROJECT`; for
     // `cargo editor` from a project shell, fall back to cwd.

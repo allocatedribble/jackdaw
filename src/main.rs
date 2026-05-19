@@ -21,16 +21,20 @@ fn main() -> AppExit {
     // swallows the signal without propagating an exit intent; so
     // by default Ctrl+C in the terminal is a no-op for jackdaw.
     // Claiming the handler first with `std::process::exit(130)`
-    // guarantees Ctrl+C actually kills the process.
+    // guarantees Ctrl+C actually kills the process. Skip this in
+    // graceful-shutdown mode so tests/profilers can exercise normal
+    // teardown paths.
     //
     // Error ignored: if another handler has already been claimed by
     // the time this runs, that's what bevy also reports ("Skipping
     // installing Ctrl+C handler as one was already installed"),
     // and we can't do anything about it from here.
-    let _ = ctrlc::set_handler(|| {
-        error!("jackdaw: received Ctrl+C, exiting");
-        std::process::exit(130);
-    });
+    if jackdaw::ShutdownMode::from_env().force_exits() {
+        let _ = ctrlc::set_handler(|| {
+            error!("jackdaw: received Ctrl+C, exiting");
+            std::process::exit(130);
+        });
+    }
 
     let requested_project = std::env::var_os("JACKDAW_PROJECT").map(PathBuf::from);
     let last_project = jackdaw::project::read_last_project();
@@ -99,6 +103,14 @@ fn main() -> AppExit {
                         decorations: false,
                         ..default()
                     }),
+                    // Disable Bevy's default window-close -> AppExit wiring so
+                    // `intercept_window_close` in ScenesPlugin owns the exit path.
+                    // `close_when_requested: false` prevents the OS window from
+                    // being destroyed automatically; we do it ourselves after the
+                    // dialog resolves. `ExitCondition::DontExit` prevents Bevy
+                    // from emitting AppExit when all windows close.
+                    exit_condition: ExitCondition::DontExit,
+                    close_when_requested: false,
                     ..default()
                 })
                 .set(AssetPlugin {
@@ -112,17 +124,6 @@ fn main() -> AppExit {
                         address_mode_w: ImageAddressMode::Repeat,
                         ..ImageSamplerDescriptor::linear()
                     },
-                })
-                // Disable Bevy's default window-close -> AppExit wiring so
-                // `intercept_window_close` in ScenesPlugin owns the exit path.
-                // `close_when_requested: false` prevents the OS window from
-                // being destroyed automatically; we do it ourselves after the
-                // dialog resolves. `ExitCondition::DontExit` prevents Bevy
-                // from emitting AppExit when all windows close.
-                .set(WindowPlugin {
-                    exit_condition: ExitCondition::DontExit,
-                    close_when_requested: false,
-                    ..default()
                 }),
         )
         // Ambient plugins added next to `DefaultPlugins`. The

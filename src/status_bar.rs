@@ -8,7 +8,7 @@ use crate::{
     draw_brush::DrawBrushState,
     gizmos::{GizmoMode, GizmoSpace},
     modal_transform::{ModalOp, ModalTransformState},
-    scene_io::{SceneDirtyState, SceneFilePath},
+    scene_io::{SceneDirtyState, SceneFilePath, SceneSaveOutcome, SceneSaveStatus},
 };
 
 /// Git branch + short commit hash, read once at startup.
@@ -86,10 +86,15 @@ fn update_status_left(
 fn update_status_center(
     scene_path: Res<SceneFilePath>,
     scene_dirty: Res<SceneDirtyState>,
+    save_status: Res<SceneSaveStatus>,
     history: Res<jackdaw_commands::CommandHistory>,
     mut text_query: Query<&mut Text, With<StatusBarCenter>>,
 ) {
-    if !scene_path.is_changed() && !scene_dirty.is_changed() && !history.is_changed() {
+    if !scene_path.is_changed()
+        && !scene_dirty.is_changed()
+        && !save_status.is_changed()
+        && !history.is_changed()
+    {
         return;
     }
     let Ok(mut text) = text_query.single_mut() else {
@@ -111,7 +116,23 @@ fn update_status_center(
             }
         });
 
-    text.0 = format!("Jackdaw v{version}{path_str}");
+    let save_str = match save_status.last.as_ref() {
+        Some(SceneSaveOutcome::Started { .. }) => " | Saving...".to_string(),
+        Some(SceneSaveOutcome::Failed { error, .. }) => {
+            let head = error.lines().next().unwrap_or("unknown error").trim();
+            let clipped = if head.chars().count() > 96 {
+                let mut clipped: String = head.chars().take(96).collect();
+                clipped.push_str("...");
+                clipped
+            } else {
+                head.to_string()
+            };
+            format!(" | Save failed: {clipped}")
+        }
+        Some(SceneSaveOutcome::Succeeded { .. }) | None => String::new(),
+    };
+
+    text.0 = format!("Jackdaw v{version}{path_str}{save_str}");
 }
 
 /// Marker for the scene stats text in the hierarchy panel footer.

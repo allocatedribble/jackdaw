@@ -91,8 +91,8 @@ macro_rules! export_extension {
                     api_version: $crate::ffi::API_VERSION,
                     bevy_version: $crate::ffi::BEVY_VERSION.as_ptr(),
                     profile: $crate::ffi::PROFILE.as_ptr(),
-                    ctor: __jackdaw_ctor,
-                    dtor: __jackdaw_dtor,
+                    ctor: Some(__jackdaw_ctor),
+                    dtor: Some(__jackdaw_dtor),
                 }
             }
         };
@@ -173,8 +173,8 @@ macro_rules! export_game {
                     bevy_version: $crate::ffi::BEVY_VERSION.as_ptr(),
                     profile: $crate::ffi::PROFILE.as_ptr(),
                     name: __JACKDAW_GAME_NAME.as_ptr(),
-                    build: __jackdaw_game_build,
-                    teardown: __jackdaw_game_teardown,
+                    build: Some(__jackdaw_game_build),
+                    teardown: Some(__jackdaw_game_teardown),
                 }
             }
         };

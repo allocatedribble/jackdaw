@@ -458,15 +458,9 @@ pub fn on_dialog_button_click(
                         sfp.path = Some(path_str);
                     }
 
-                    crate::scene_io::save_scene(world);
-
-                    // Mark not-dirty after save.
-                    if let Some(tab) = world
-                        .resource_mut::<crate::scenes::Scenes>()
-                        .tabs
-                        .get_mut(target)
-                    {
-                        tab.dirty = false;
+                    if !crate::scene_io::save_scene(world) {
+                        warn!("confirm_dialog: save failed; keeping tab open");
+                        return;
                     }
 
                     world.resource_mut::<PendingTabClose>().tab_index = None;

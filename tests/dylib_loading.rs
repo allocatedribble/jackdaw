@@ -16,13 +16,25 @@
 //! coverage belongs in a follow-up test harness built with
 //! `--features dylib` that wires the proxy SDK.
 
-use std::{mem::ManuallyDrop, path::PathBuf};
+use std::{
+    mem::ManuallyDrop,
+    path::PathBuf,
+    sync::{Mutex, MutexGuard},
+};
 
 use bevy::prelude::*;
 use jackdaw_api_internal::lifecycle::ExtensionCatalog;
 use jackdaw_loader::{LoadError, LoadedDylibs, LoadedKind, load_from_path, peek_kind};
 
 mod util;
+
+static DYLIB_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+fn dylib_test_guard() -> MutexGuard<'static, ()> {
+    DYLIB_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 /// Resolve the path to the fixture cdylib produced by cargo as part
 /// of the workspace test-target build.
@@ -92,6 +104,7 @@ impl Drop for LeakyApp {
 
 #[test]
 fn peek_kind_classifies_extension() {
+    let _guard = dylib_test_guard();
     let path = fixture_path();
     let kind = peek_kind(&path).expect("peek_kind should succeed on a valid fixture");
     match kind {
@@ -102,6 +115,7 @@ fn peek_kind_classifies_extension() {
 
 #[test]
 fn load_from_path_registers_extension() {
+    let _guard = dylib_test_guard();
     let path = fixture_path();
     let mut app = headless_app_with_empty_dylib_loader();
     app.finish();
@@ -122,6 +136,7 @@ fn load_from_path_registers_extension() {
 
 #[test]
 fn repeat_load_is_idempotent() {
+    let _guard = dylib_test_guard();
     let path = fixture_path();
     let mut app = headless_app_with_empty_dylib_loader();
     app.finish();
@@ -144,6 +159,7 @@ fn repeat_load_is_idempotent() {
 
 #[test]
 fn missing_file_is_libloading_error() {
+    let _guard = dylib_test_guard();
     // `load_from_path` early-returns before touching `LoadedDylibs`
     // for dlopen failures, so the base `headless_app()` (no
     // DylibLoaderPlugin) is enough here. No dylib was loaded; the

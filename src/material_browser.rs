@@ -325,17 +325,17 @@ fn detect_and_create_materials(
                 }
                 "normalgl" | "nor" | "nrm" | "nrml" | "norm" | "bump" | "bmp" | "n" | "normal" => {
                     normal_map_texture = Some(
-                        asset_server.load_with_settings::<Image, ImageLoaderSettings>(
-                            asset_path.clone(),
-                            |s: &mut ImageLoaderSettings| s.is_srgb = false,
-                        ),
+                        asset_server
+                            .load_builder()
+                            .with_settings(|s: &mut ImageLoaderSettings| s.is_srgb = false)
+                            .load::<Image>(asset_path.clone()),
                     );
                 }
                 "orm" => {
-                    let img = asset_server.load_with_settings::<Image, ImageLoaderSettings>(
-                        asset_path.clone(),
-                        |s: &mut ImageLoaderSettings| s.is_srgb = false,
-                    );
+                    let img = asset_server
+                        .load_builder()
+                        .with_settings(|s: &mut ImageLoaderSettings| s.is_srgb = false)
+                        .load::<Image>(asset_path.clone());
                     if metallic_roughness_texture.is_none() {
                         metallic_roughness_texture = Some(img.clone());
                     }
@@ -346,10 +346,10 @@ fn detect_and_create_materials(
                 "metallic" | "metalness" | "metal" | "mtl" | "roughness" | "rough" | "rgh"
                     if metallic_roughness_texture.is_none() => {
                         metallic_roughness_texture = Some(
-                            asset_server.load_with_settings::<Image, ImageLoaderSettings>(
-                                asset_path.clone(),
-                                |s: &mut ImageLoaderSettings| s.is_srgb = false,
-                            ),
+                            asset_server
+                                .load_builder()
+                                .with_settings(|s: &mut ImageLoaderSettings| s.is_srgb = false)
+                                .load::<Image>(asset_path.clone()),
                         );
                     }
                 "emission" | "emissive" | "emit" => {
@@ -357,10 +357,10 @@ fn detect_and_create_materials(
                 }
                 "ao" | "ambient" | "occlusion" | "ambientocclusion" => {
                     occlusion_texture = Some(
-                        asset_server.load_with_settings::<Image, ImageLoaderSettings>(
-                            asset_path.clone(),
-                            |s: &mut ImageLoaderSettings| s.is_srgb = false,
-                        ),
+                        asset_server
+                            .load_builder()
+                            .with_settings(|s: &mut ImageLoaderSettings| s.is_srgb = false)
+                            .load::<Image>(asset_path.clone()),
                     );
                 }
                 "displacement" | "displace" | "disp" | "dsp" | "height" | "heightmap"
@@ -368,10 +368,10 @@ fn detect_and_create_materials(
                     // is incompatible with StandardMaterial's float-filterable depth_map slot.
                     if !is_16bit_png(Path::new(fs_path)) => {
                         depth_map = Some(
-                            asset_server.load_with_settings::<Image, ImageLoaderSettings>(
-                                asset_path.clone(),
-                                |s: &mut ImageLoaderSettings| s.is_srgb = false,
-                            ),
+                            asset_server
+                                .load_builder()
+                                .with_settings(|s: &mut ImageLoaderSettings| s.is_srgb = false)
+                                .load::<Image>(asset_path.clone()),
                         );
                     }
                 _ => {}
@@ -1302,10 +1302,10 @@ fn poll_texture_slot_pick(world: &mut World) {
     let image_handle = if slot.is_srgb() {
         asset_server.load::<Image>(asset_path)
     } else {
-        asset_server.load_with_settings::<Image, ImageLoaderSettings>(
-            asset_path,
-            |s: &mut ImageLoaderSettings| s.is_srgb = false,
-        )
+        asset_server
+            .load_builder()
+            .with_settings(|s: &mut ImageLoaderSettings| s.is_srgb = false)
+            .load::<Image>(asset_path)
     };
 
     let mut materials = world.resource_mut::<Assets<StandardMaterial>>();

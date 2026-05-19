@@ -203,8 +203,8 @@ impl<'a> ExtensionContext<'a> {
         self.world.insert_resource(resource);
         let id = self
             .world
-            .resource_id::<T>()
-            .expect("resource_id should be Some since resource was just inserted");
+            .component_id::<T>()
+            .expect("component_id should be Some since resource was just inserted");
         self.world.spawn(ExtensionResourceOf {
             entity: self.id(),
             resource_id: ResourceId(id),

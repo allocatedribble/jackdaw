@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use bevy_enhanced_input::prelude::{Press, *};
 use jackdaw_api::prelude::*;
 
-use crate::scene_io::{SceneDirtyState, SceneFilePath};
+use crate::scene_io::{SceneDirtyState, SceneFilePath, SceneSaveOutcome};
 use crate::scenes::{SceneTab, Scenes, swap::swap_active_tab};
 
 /// Counter for default `untitled-N` names. Persists across the editor
@@ -317,8 +317,24 @@ pub fn scene_save_all_system(world: &mut World) {
         let jsn = crate::scene_io::serialize_world_to_jsn_scene(world);
         match serde_json::to_string_pretty(&jsn) {
             Ok(json) => {
-                match std::fs::write(&path, &json) {
-                    Ok(()) => {
+                crate::scene_io::record_save_status(
+                    world,
+                    SceneSaveOutcome::Started {
+                        path: path.clone(),
+                        bytes: json.len(),
+                    },
+                );
+                let write_started = std::time::Instant::now();
+                match crate::scene_io::write_file_atomic(&path, json.as_bytes()) {
+                    Ok(bytes) => {
+                        crate::scene_io::record_save_status(
+                            world,
+                            SceneSaveOutcome::Succeeded {
+                                path: path.clone(),
+                                bytes,
+                                duration: write_started.elapsed(),
+                            },
+                        );
                         let depth = world
                             .resource::<crate::commands::CommandHistory>()
                             .undo_stack
@@ -337,10 +353,29 @@ pub fn scene_save_all_system(world: &mut World) {
                             ds.undo_len_at_save = history_len;
                         }
                     }
-                    Err(err) => warn!("scene.save_all: failed to write {path:?}: {err}"),
+                    Err(err) => {
+                        let error = err.to_string();
+                        crate::scene_io::record_save_status(
+                            world,
+                            SceneSaveOutcome::Failed {
+                                path: path.clone(),
+                                error,
+                            },
+                        );
+                        warn!("scene.save_all: failed to write {path:?}: {err}");
+                    }
                 }
             }
-            Err(err) => warn!("scene.save_all: failed to serialize tab {i}: {err}"),
+            Err(err) => {
+                crate::scene_io::record_save_status(
+                    world,
+                    SceneSaveOutcome::Failed {
+                        path: path.clone(),
+                        error: err.to_string(),
+                    },
+                );
+                warn!("scene.save_all: failed to serialize tab {i}: {err}");
+            }
         }
     }
 

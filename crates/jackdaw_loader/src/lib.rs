@@ -44,7 +44,6 @@
 
 mod compat;
 
-use std::ffi::CStr;
 use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
 
@@ -434,20 +433,13 @@ fn open_and_verify(path: &Path) -> Result<OpenedDylib, LoadError> {
         }))
         .map_err(|_| LoadError::EntryPanicked)?;
 
-        compat::verify_game_compat(&entry)?;
-
-        // SAFETY: `verify_game_compat` rejected null; the library
-        // stays alive at least until `lib` is dropped by the caller.
-        let name = unsafe { CStr::from_ptr(entry.name) }
-            .to_str()
-            .map_err(|_| LoadError::InvalidName)?
-            .to_owned();
+        let verified = compat::verify_game_compat(&entry)?;
 
         return Ok(OpenedDylib::Game {
             lib,
-            name,
-            build: entry.build,
-            teardown: entry.teardown,
+            name: verified.name,
+            build: verified.build,
+            teardown: verified.teardown,
         });
     }
 
@@ -471,7 +463,9 @@ fn open_and_verify(path: &Path) -> Result<OpenedDylib, LoadError> {
     }))
     .map_err(|_| LoadError::EntryPanicked)?;
 
-    compat::verify_compat(&entry)?;
+    let verified = compat::verify_compat(&entry)?;
+    let ctor = verified.ctor;
+    let dtor = verified.dtor;
 
     let construct_extension = move || -> Box<dyn JackdawExtension> {
         // SAFETY: the dylib stays loaded because its
@@ -479,7 +473,7 @@ fn open_and_verify(path: &Path) -> Result<OpenedDylib, LoadError> {
         // `verify_compat` asserted the ABI contract at
         // load time mooore or less (see next comment),
         //  and the ctor pointer itself is just a plain function pointer.
-        let raw = unsafe { (entry.ctor)() };
+        let raw = unsafe { ctor() };
         // SAFETY: we control the export site, which exports the pointer of
         // a `dyn JackdawExtension` trait object, so we can "safely" transmute
         // the pointer. This is not really safe, since there's no guarantee
@@ -505,7 +499,7 @@ fn open_and_verify(path: &Path) -> Result<OpenedDylib, LoadError> {
         // `verify_compat` asserted the ABI contract at
         // load time mooore or less (see next comment),
         //  and the dtor pointer itself is just a plain function pointer.
-        unsafe { (entry.dtor)(raw) }
+        unsafe { dtor(raw) }
     };
 
     Ok(OpenedDylib::Extension {

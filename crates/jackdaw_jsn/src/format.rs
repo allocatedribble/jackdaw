@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
+use serde::ser::{SerializeMap, Serializer};
 use serde::{Deserialize, Serialize};
 
 fn is_zero(n: &usize) -> bool {
@@ -90,7 +91,11 @@ impl From<JsnVisibility> for Visibility {
 pub struct JsnEntity {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent: Option<usize>,
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    #[serde(
+        default,
+        skip_serializing_if = "HashMap::is_empty",
+        serialize_with = "serialize_string_value_map"
+    )]
     pub components: HashMap<String, serde_json::Value>,
 }
 
@@ -231,8 +236,21 @@ pub struct JsnMetadata {
 ///   }
 /// }
 /// ```
-#[derive(Serialize, Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct JsnAssets(pub HashMap<String, HashMap<String, serde_json::Value>>);
+
+impl Serialize for JsnAssets {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut entries: Vec<_> = self.0.iter().collect();
+        entries.sort_by(|(a, _), (b, _)| a.cmp(b));
+
+        let mut map = serializer.serialize_map(Some(entries.len()))?;
+        for (type_path, named_entries) in entries {
+            map.serialize_entry(type_path, &SortedStringValueMap(named_entries))?;
+        }
+        map.end()
+    }
+}
 
 impl<'de> serde::Deserialize<'de> for JsnAssets {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
@@ -242,6 +260,28 @@ impl<'de> serde::Deserialize<'de> for JsnAssets {
             Err(_) => Ok(JsnAssets(HashMap::new())),
         }
     }
+}
+
+struct SortedStringValueMap<'a>(&'a HashMap<String, serde_json::Value>);
+
+impl Serialize for SortedStringValueMap<'_> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serialize_string_value_map(self.0, serializer)
+    }
+}
+
+fn serialize_string_value_map<S: Serializer>(
+    map: &HashMap<String, serde_json::Value>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    let mut entries: Vec<_> = map.iter().collect();
+    entries.sort_by(|(a, _), (b, _)| a.cmp(b));
+
+    let mut out = serializer.serialize_map(Some(entries.len()))?;
+    for (key, value) in entries {
+        out.serialize_entry(key, value)?;
+    }
+    out.end()
 }
 
 /// Editor-specific state persisted alongside the scene. Restored on
@@ -298,4 +338,53 @@ pub struct JsnProjectConfig {
     /// Clamped to range on load. Defaults to 0.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub last_active_tab: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn entity_components_serialize_in_key_order() {
+        let mut components = HashMap::new();
+        components.insert("z_component".to_string(), serde_json::json!(1));
+        components.insert("a_component".to_string(), serde_json::json!(2));
+        components.insert("m_component".to_string(), serde_json::json!(3));
+
+        let json = serde_json::to_string(&JsnEntity {
+            parent: None,
+            components,
+        })
+        .unwrap();
+
+        let a = json.find("a_component").unwrap();
+        let m = json.find("m_component").unwrap();
+        let z = json.find("z_component").unwrap();
+        assert!(a < m && m < z, "{json}");
+    }
+
+    #[test]
+    fn assets_serialize_type_and_entry_keys_in_order() {
+        let mut assets = HashMap::new();
+        assets.insert(
+            "z_type".to_string(),
+            HashMap::from([
+                ("z_name".to_string(), serde_json::json!(1)),
+                ("a_name".to_string(), serde_json::json!(2)),
+            ]),
+        );
+        assets.insert(
+            "a_type".to_string(),
+            HashMap::from([("only".to_string(), serde_json::json!(3))]),
+        );
+
+        let json = serde_json::to_string(&JsnAssets(assets)).unwrap();
+
+        let a_type = json.find("a_type").unwrap();
+        let z_type = json.find("z_type").unwrap();
+        let a_name = json.find("a_name").unwrap();
+        let z_name = json.find("z_name").unwrap();
+        assert!(a_type < z_type, "{json}");
+        assert!(a_name < z_name, "{json}");
+    }
 }

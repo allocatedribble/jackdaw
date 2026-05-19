@@ -98,11 +98,48 @@ pub use jackdaw_loader::DylibLoaderPlugin;
 use jackdaw_widgets::menu_bar::MenuAction;
 use selection::Selection;
 
+pub const JACKDAW_GRACEFUL_SHUTDOWN_ENV: &str = "JACKDAW_GRACEFUL_SHUTDOWN";
+
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShutdownMode {
+    /// Emergency-compatible default: exit the process as soon as the
+    /// editor observes `AppExit`.
+    ForceExit,
+    /// Let Bevy unwind the app normally. Use this for tests,
+    /// profiling, and any path that needs destructors/file flushes to
+    /// run after `AppExit`.
+    Graceful,
+}
+
+impl ShutdownMode {
+    pub fn from_env() -> Self {
+        std::env::var(JACKDAW_GRACEFUL_SHUTDOWN_ENV)
+            .ok()
+            .filter(|value| {
+                matches!(
+                    value.trim().to_ascii_lowercase().as_str(),
+                    "1" | "true" | "yes" | "on" | "graceful"
+                )
+            })
+            .map_or(Self::ForceExit, |_| Self::Graceful)
+    }
+
+    pub const fn force_exits(self) -> bool {
+        matches!(self, Self::ForceExit)
+    }
+}
+
+impl Default for ShutdownMode {
+    fn default() -> Self {
+        Self::from_env()
+    }
+}
+
 /// Everything needed to start using Jackdaw.
 pub mod prelude {
     pub use crate::{
         DylibLoaderPlugin, EditorCategory, EditorDescription, EditorHidden, EditorPlugins,
-        ExtensionPlugin, SkipSerialization,
+        ExtensionPlugin, ShutdownMode, SkipSerialization,
     };
     pub use jackdaw_api::prelude::*;
 
@@ -313,23 +350,8 @@ impl Plugin for EditorCorePlugin {
         .add_plugins(extensions_dialog::ExtensionsDialogPlugin)
         .add_plugins(hot_reload::HotReloadPlugin)
         .add_plugins(pie::PiePlugin)
-        // Force-exit on `AppExit`: bypass wgpu device cleanup
-        // and AsyncComputeTaskPool shutdown that otherwise hang
-        // the process after window close. Hosted here so every
-        // editor binary (launcher + user `cargo editor`) gets
-        // the same shutdown behaviour.
-        .add_systems(
-            Last,
-            |mut events: bevy::ecs::message::MessageReader<AppExit>| {
-                if let Some(exit) = events.read().next() {
-                    let code = match exit {
-                        AppExit::Success => 0,
-                        AppExit::Error(c) => c.get() as i32,
-                    };
-                    std::process::exit(code);
-                }
-            },
-        )
+        .init_resource::<ShutdownMode>()
+        .add_systems(Last, force_exit_on_app_exit)
         .add_systems(Startup, (register_workspaces, sync_icon_font))
         .configure_sets(
             Update,
@@ -403,6 +425,44 @@ impl Plugin for EditorCorePlugin {
         .add_observer(on_timeline_keyframe_click);
 
         app.add_plugins(extension_lifecycle::plugin);
+    }
+}
+
+fn force_exit_on_app_exit(
+    shutdown: Res<ShutdownMode>,
+    mut events: bevy::ecs::message::MessageReader<AppExit>,
+) {
+    if !shutdown.force_exits() {
+        return;
+    }
+    if let Some(exit) = events.read().next() {
+        std::process::exit(app_exit_code(exit));
+    }
+}
+
+fn app_exit_code(exit: &AppExit) -> i32 {
+    match exit {
+        AppExit::Success => 0,
+        AppExit::Error(code) => code.get() as i32,
+    }
+}
+
+#[cfg(test)]
+mod shutdown_tests {
+    use std::num::NonZero;
+
+    use super::*;
+
+    #[test]
+    fn shutdown_mode_marks_only_force_exit_as_process_exit() {
+        assert!(ShutdownMode::ForceExit.force_exits());
+        assert!(!ShutdownMode::Graceful.force_exits());
+    }
+
+    #[test]
+    fn app_exit_code_preserves_success_and_error_codes() {
+        assert_eq!(app_exit_code(&AppExit::Success), 0);
+        assert_eq!(app_exit_code(&AppExit::Error(NonZero::new(7).unwrap())), 7);
     }
 }
 

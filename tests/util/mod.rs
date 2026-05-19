@@ -16,11 +16,13 @@ pub fn headless_app() -> App {
     let mut app = App::new();
     app.add_plugins(
         DefaultPlugins
+            .build()
+            .disable::<bevy::input_focus::InputDispatchPlugin>()
             .set(RenderPlugin {
-                render_creation: RenderCreation::Automatic(WgpuSettings {
+                render_creation: RenderCreation::Automatic(Box::new(WgpuSettings {
                     backends: None,
                     ..default()
-                }),
+                })),
                 ..default()
             })
             .disable::<WinitPlugin>(),

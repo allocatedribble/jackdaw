@@ -46,7 +46,10 @@ use core::ffi::{CStr, c_char};
 /// v2 introduced the `GameEntry::teardown` pointer and swapped
 /// `build` from `*mut App` to `*mut World`, needed for in-process
 /// hot reload of games.
-pub const API_VERSION: u32 = 2;
+/// v3 made callable entry fields nullable at the ABI layer so the
+/// host can reject malformed dylibs before invoking any function
+/// pointer.
+pub const API_VERSION: u32 = 3;
 
 /// Bevy minor-version string the host was built against. The loader
 /// compares this against the dylib's embedded value and refuses to
@@ -124,8 +127,8 @@ pub struct ExtensionEntry {
     pub api_version: u32,
     pub bevy_version: *const c_char,
     pub profile: *const c_char,
-    pub ctor: unsafe extern "C" fn() -> JackdawExtensionPtr,
-    pub dtor: unsafe extern "C" fn(JackdawExtensionPtr),
+    pub ctor: Option<unsafe extern "C" fn() -> JackdawExtensionPtr>,
+    pub dtor: Option<unsafe extern "C" fn(JackdawExtensionPtr)>,
 }
 
 #[repr(C)]
@@ -161,6 +164,6 @@ pub struct GameEntry {
     pub bevy_version: *const c_char,
     pub profile: *const c_char,
     pub name: *const c_char,
-    pub build: unsafe extern "C" fn(*mut bevy::ecs::world::World),
-    pub teardown: unsafe extern "C" fn(*mut bevy::ecs::world::World),
+    pub build: Option<unsafe extern "C" fn(*mut bevy::ecs::world::World)>,
+    pub teardown: Option<unsafe extern "C" fn(*mut bevy::ecs::world::World)>,
 }

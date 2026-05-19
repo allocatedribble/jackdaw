@@ -55,10 +55,10 @@ fn serialize_world_to_jsn_scene_captures_brushes() {
     app.add_plugins(
         DefaultPlugins
             .set(RenderPlugin {
-                render_creation: RenderCreation::Automatic(WgpuSettings {
+                render_creation: RenderCreation::Automatic(Box::new(WgpuSettings {
                     backends: None,
                     ..default()
-                }),
+                })),
                 ..default()
             })
             .disable::<WinitPlugin>(),
@@ -86,10 +86,10 @@ fn swap_round_trips_a_single_brush() {
     app.add_plugins(
         DefaultPlugins
             .set(RenderPlugin {
-                render_creation: RenderCreation::Automatic(WgpuSettings {
+                render_creation: RenderCreation::Automatic(Box::new(WgpuSettings {
                     backends: None,
                     ..default()
-                }),
+                })),
                 ..default()
             })
             .disable::<WinitPlugin>(),
@@ -143,10 +143,10 @@ fn swap_preserves_camera_transform_per_tab() {
     app.add_plugins(
         DefaultPlugins
             .set(RenderPlugin {
-                render_creation: RenderCreation::Automatic(WgpuSettings {
+                render_creation: RenderCreation::Automatic(Box::new(WgpuSettings {
                     backends: None,
                     ..default()
-                }),
+                })),
                 ..default()
             })
             .disable::<WinitPlugin>(),
@@ -199,10 +199,10 @@ fn scene_new_appends_an_untitled_tab() {
     app.add_plugins(
         DefaultPlugins
             .set(RenderPlugin {
-                render_creation: RenderCreation::Automatic(WgpuSettings {
+                render_creation: RenderCreation::Automatic(Box::new(WgpuSettings {
                     backends: None,
                     ..default()
-                }),
+                })),
                 ..default()
             })
             .disable::<WinitPlugin>(),
@@ -246,10 +246,10 @@ fn scene_open_dedupes_by_path() {
     app.add_plugins(
         DefaultPlugins
             .set(RenderPlugin {
-                render_creation: RenderCreation::Automatic(WgpuSettings {
+                render_creation: RenderCreation::Automatic(Box::new(WgpuSettings {
                     backends: None,
                     ..default()
-                }),
+                })),
                 ..default()
             })
             .disable::<WinitPlugin>(),
@@ -307,10 +307,10 @@ fn make_app_with_n_tabs(n: usize) -> bevy::app::App {
     app.add_plugins(
         DefaultPlugins
             .set(RenderPlugin {
-                render_creation: RenderCreation::Automatic(WgpuSettings {
+                render_creation: RenderCreation::Automatic(Box::new(WgpuSettings {
                     backends: None,
                     ..default()
-                }),
+                })),
                 ..default()
             })
             .disable::<WinitPlugin>(),
@@ -323,6 +323,7 @@ fn make_app_with_n_tabs(n: usize) -> bevy::app::App {
     app.init_resource::<jackdaw::scenes::operators::UntitledCounter>();
     app.init_resource::<jackdaw::scene_io::SceneFilePath>();
     app.init_resource::<jackdaw::scene_io::SceneDirtyState>();
+    app.init_resource::<jackdaw::scene_io::SceneSaveStatus>();
     {
         let mut scenes = app.world_mut().resource_mut::<jackdaw::scenes::Scenes>();
         for i in 0..n {
@@ -366,6 +367,96 @@ fn scene_save_all_writes_each_path_bound_tab() {
 
     let _ = std::fs::remove_file(&tmp_a);
     let _ = std::fs::remove_file(&tmp_b);
+}
+
+#[test]
+fn scene_save_failure_keeps_dirty_state_honest() {
+    let mut app = make_app_with_n_tabs(1);
+    let dir = std::env::temp_dir().join(format!("jackdaw-save-failure-{}", std::process::id()));
+    let path = dir.join("missing").join("scene.jsn");
+    let _ = std::fs::remove_dir_all(&dir);
+
+    {
+        let mut scenes = app.world_mut().resource_mut::<jackdaw::scenes::Scenes>();
+        scenes.tabs[0].path = Some(path.clone());
+        scenes.tabs[0].dirty = true;
+    }
+    app.world_mut()
+        .resource_mut::<jackdaw::scene_io::SceneDirtyState>()
+        .undo_len_at_save = 777;
+
+    assert!(!jackdaw::scene_io::save_scene(app.world_mut()));
+
+    let scenes = app.world().resource::<jackdaw::scenes::Scenes>();
+    assert!(scenes.tabs[0].dirty, "failed save must leave tab dirty");
+    assert_eq!(
+        app.world()
+            .resource::<jackdaw::scene_io::SceneDirtyState>()
+            .undo_len_at_save,
+        777,
+        "failed save must not advance dirty baseline"
+    );
+    assert!(
+        !path.exists(),
+        "failed save must not create primary scene file"
+    );
+    assert!(matches!(
+        app.world()
+            .resource::<jackdaw::scene_io::SceneSaveStatus>()
+            .last
+            .as_ref(),
+        Some(jackdaw::scene_io::SceneSaveOutcome::Failed { path: failed_path, .. })
+            if failed_path == &path
+    ));
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn scene_save_success_clears_dirty_after_file_replace() {
+    let mut app = make_app_with_n_tabs(1);
+    let dir = std::env::temp_dir().join(format!("jackdaw-save-success-{}", std::process::id()));
+    let path = dir.join("scene.jsn");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(&path, b"old").unwrap();
+
+    {
+        let mut scenes = app.world_mut().resource_mut::<jackdaw::scenes::Scenes>();
+        scenes.tabs[0].path = Some(path.clone());
+        scenes.tabs[0].dirty = true;
+    }
+    app.world_mut()
+        .resource_mut::<jackdaw::scene_io::SceneDirtyState>()
+        .undo_len_at_save = 777;
+
+    assert!(jackdaw::scene_io::save_scene(app.world_mut()));
+
+    let scenes = app.world().resource::<jackdaw::scenes::Scenes>();
+    assert!(
+        !scenes.tabs[0].dirty,
+        "successful save should clear tab dirty"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<jackdaw::scene_io::SceneDirtyState>()
+            .undo_len_at_save,
+        app.world()
+            .resource::<jackdaw::commands::CommandHistory>()
+            .undo_stack
+            .len()
+    );
+    assert_ne!(std::fs::read(&path).unwrap(), b"old");
+    assert!(matches!(
+        app.world()
+            .resource::<jackdaw::scene_io::SceneSaveStatus>()
+            .last
+            .as_ref(),
+        Some(jackdaw::scene_io::SceneSaveOutcome::Succeeded { path: saved_path, .. })
+            if saved_path == &path
+    ));
+
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 #[test]

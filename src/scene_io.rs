@@ -3,8 +3,12 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fmt::{self, Formatter};
+use std::fs::OpenOptions;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::result::Result;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 
 use bevy::asset::{ReflectAsset, ReflectHandle, UntypedAssetId};
 use bevy::image::ImageLoaderSettings;
@@ -15,7 +19,7 @@ use bevy::{
     ecs::reflect::AppTypeRegistry,
     prelude::*,
     reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer},
-    tasks::{AsyncComputeTaskPool, IoTaskPool, Task, futures_lite::future},
+    tasks::{AsyncComputeTaskPool, Task, futures_lite::future},
     window::{PrimaryWindow, RawHandleWrapper},
     world_serialization::{WorldAssetRoot as SceneRoot, serde::WorldDeserializer},
 };
@@ -79,6 +83,7 @@ impl Plugin for SceneIoPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SceneFilePath>()
             .init_resource::<SceneDirtyState>()
+            .init_resource::<SceneSaveStatus>()
             .add_systems(
                 Update,
                 (poll_scene_dialog, cleanup_pending_new_scene)
@@ -86,6 +91,38 @@ impl Plugin for SceneIoPlugin {
             )
             .add_observer(on_new_scene_save)
             .add_observer(on_new_scene_discard);
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum SceneSaveOutcome {
+    Started {
+        path: PathBuf,
+        bytes: usize,
+    },
+    Succeeded {
+        path: PathBuf,
+        bytes: u64,
+        duration: Duration,
+    },
+    Failed {
+        path: PathBuf,
+        error: String,
+    },
+}
+
+#[derive(Resource, Default, Clone, Debug)]
+pub struct SceneSaveStatus {
+    pub last: Option<SceneSaveOutcome>,
+}
+
+pub(crate) fn record_save_status(world: &mut World, outcome: SceneSaveOutcome) {
+    if let Some(mut status) = world.get_resource_mut::<SceneSaveStatus>() {
+        status.last = Some(outcome);
+    } else {
+        world.insert_resource(SceneSaveStatus {
+            last: Some(outcome),
+        });
     }
 }
 
@@ -171,7 +208,7 @@ fn spawn_open_dialog(world: &mut World) {
     world.insert_resource(SceneDialogTask::Load(task));
 }
 
-pub fn save_scene(world: &mut World) {
+pub fn save_scene(world: &mut World) -> bool {
     // The active scene tab is the source of truth for which file to
     // save to. Re-sync the global `SceneFilePath` from it so a stale
     // path from a previous tab can never cause us to overwrite the
@@ -187,12 +224,28 @@ pub fn save_scene(world: &mut World) {
     let has_path = world.resource::<SceneFilePath>().path.is_some();
     if !has_path {
         save_scene_as(world);
-        return;
+        return false;
     }
 
     if let Err(err) = save_scene_inner(world) {
+        let path = world
+            .resource::<SceneFilePath>()
+            .path
+            .as_deref()
+            .map(PathBuf::from)
+            .unwrap_or_default();
+        record_save_status(
+            world,
+            SceneSaveOutcome::Failed {
+                path,
+                error: err.to_string(),
+            },
+        );
         error!("scene save failed: {err}");
+        return false;
     }
+
+    true
 }
 
 pub fn save_scene_as(world: &mut World) {
@@ -307,6 +360,38 @@ fn save_scene_inner(world: &mut World) -> Result<(), BevyError> {
             .clone()
             .expect("save_scene_inner called without a path set")
     };
+    let path_buf = PathBuf::from(&path);
+    record_save_status(
+        world,
+        SceneSaveOutcome::Started {
+            path: path_buf.clone(),
+            bytes: json.len(),
+        },
+    );
+
+    let write_started = std::time::Instant::now();
+    let bytes = match write_file_atomic(&path_buf, json.as_bytes()) {
+        Ok(bytes) => bytes,
+        Err(err) => {
+            let error = err.to_string();
+            record_save_status(
+                world,
+                SceneSaveOutcome::Failed {
+                    path: path_buf,
+                    error,
+                },
+            );
+            return Err(err.into());
+        }
+    };
+    record_save_status(
+        world,
+        SceneSaveOutcome::Succeeded {
+            path: path_buf,
+            bytes,
+            duration: write_started.elapsed(),
+        },
+    );
 
     // Save metadata back
     let mut scene_path = world.resource_mut::<SceneFilePath>();
@@ -330,16 +415,7 @@ fn save_scene_inner(world: &mut World) -> Result<(), BevyError> {
         }
     }
 
-    // Write to disk on the IO task pool
-    let path_clone = path.clone();
-    IoTaskPool::get()
-        .spawn(async move {
-            match std::fs::write(&path_clone, &json) {
-                Ok(()) => info!("Scene saved to {path_clone}"),
-                Err(err) => warn!("Failed to write scene file: {err}"),
-            }
-        })
-        .detach();
+    info!("Scene saved to {path}");
 
     // Sync AST from the serialized scene. Re-collect the entity list so
     // we can map scene indices back to live ECS entities (same logic as
@@ -360,6 +436,153 @@ fn save_scene_inner(world: &mut World) -> Result<(), BevyError> {
     save_layout_to_project(world);
 
     Ok(())
+}
+
+static SAVE_TMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+pub(crate) fn write_file_atomic(path: &Path, bytes: &[u8]) -> io::Result<u64> {
+    let parent = path.parent().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("path has no parent directory: {}", path.display()),
+        )
+    })?;
+    let filename = path.file_name().ok_or_else(|| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("path has no valid file name: {}", path.display()),
+        )
+    })?;
+    let filename = filename.to_string_lossy();
+    let tmp_path = parent.join(format!(
+        ".{filename}.tmp-{}-{}",
+        std::process::id(),
+        SAVE_TMP_COUNTER.fetch_add(1, Ordering::Relaxed)
+    ));
+
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&tmp_path)?;
+    file.write_all(bytes)?;
+    file.sync_all()?;
+    drop(file);
+
+    if let Err(err) = replace_file_atomic(&tmp_path, path) {
+        if let Err(cleanup_err) = std::fs::remove_file(&tmp_path) {
+            return Err(io::Error::new(
+                err.kind(),
+                format!(
+                    "{err}; additionally failed to remove temp file {}: {cleanup_err}",
+                    tmp_path.display()
+                ),
+            ));
+        }
+        return Err(err);
+    }
+    sync_parent_after_replace(path)?;
+
+    Ok(bytes.len() as u64)
+}
+
+#[cfg(windows)]
+fn replace_file_atomic(tmp_path: &Path, path: &Path) -> io::Result<()> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{
+        MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
+    };
+
+    fn wide(path: &Path) -> Vec<u16> {
+        path.as_os_str().encode_wide().chain([0]).collect()
+    }
+
+    let tmp = wide(tmp_path);
+    let target = wide(path);
+    let ok = unsafe {
+        MoveFileExW(
+            tmp.as_ptr(),
+            target.as_ptr(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+        )
+    };
+    if ok == 0 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(not(windows))]
+fn replace_file_atomic(tmp_path: &Path, path: &Path) -> io::Result<()> {
+    std::fs::rename(tmp_path, path)
+}
+
+#[cfg(unix)]
+fn sync_parent_after_replace(path: &Path) -> io::Result<()> {
+    if let Some(parent) = path.parent() {
+        OpenOptions::new().read(true).open(parent)?.sync_all()?;
+    }
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn sync_parent_after_replace(_path: &Path) -> io::Result<()> {
+    Ok(())
+}
+
+#[cfg(test)]
+mod atomic_write_tests {
+    use super::*;
+
+    fn unique_dir(label: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "jackdaw-{label}-{}-{}",
+            std::process::id(),
+            SAVE_TMP_COUNTER.fetch_add(1, Ordering::Relaxed)
+        ))
+    }
+
+    #[test]
+    fn atomic_write_replaces_existing_file() {
+        let dir = unique_dir("atomic-replace");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("scene.jsn");
+        std::fs::write(&path, b"old").unwrap();
+
+        let bytes = write_file_atomic(&path, b"new scene").unwrap();
+
+        assert_eq!(bytes, 9);
+        assert_eq!(std::fs::read(&path).unwrap(), b"new scene");
+        let leftovers = std::fs::read_dir(&dir)
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| entry.file_name().to_string_lossy().contains(".tmp-"))
+            .count();
+        assert_eq!(leftovers, 0, "successful save should not leave temp files");
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn atomic_write_missing_parent_leaves_primary_absent() {
+        let dir = unique_dir("atomic-missing-parent");
+        let path = dir.join("scene.jsn");
+
+        let err = write_file_atomic(&path, b"new scene").unwrap_err();
+
+        assert!(
+            matches!(
+                err.kind(),
+                io::ErrorKind::NotFound | io::ErrorKind::PermissionDenied
+            ),
+            "unexpected error kind: {err:?}"
+        );
+        assert!(
+            !path.exists(),
+            "failed save must not create the primary file"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
 
 pub fn save_layout_to_project(world: &mut World) {
@@ -594,7 +817,7 @@ impl<'a> ReflectDeserializerProcessor for JsnDeserializerProcessor<'a> {
             let mut asset_path = crate::entity_ops::to_asset_path(&stem_fs);
             asset_path.push_str(&relative_path[stem_pos..]);
 
-            let handle = self.asset_server.load_untyped(asset_path);
+            let handle = self.asset_server.load_builder().load_untyped(asset_path);
             return Ok(Ok(Box::new(handle).into_partial_reflect()));
         }
 
@@ -759,7 +982,7 @@ fn collect_inline_assets(
     for &entity in scene_entities {
         let entity_ref = world.entity(entity);
 
-        for registration in registry.iter() {
+        for registration in sorted_type_registrations(registry) {
             if skip_ids.contains(&registration.type_id()) {
                 continue;
             }
@@ -1188,7 +1411,7 @@ fn build_scene_snapshot(
             let mut components = HashMap::new();
             let mut skipped_derived = 0u32;
 
-            for registration in registry.iter() {
+            for registration in sorted_type_registrations(registry) {
                 if skip_ids.contains(&registration.type_id()) {
                     continue;
                 }
@@ -1230,6 +1453,17 @@ fn build_scene_snapshot(
             JsnEntity { parent, components }
         })
         .collect()
+}
+
+fn sorted_type_registrations(registry: &TypeRegistry) -> Vec<&TypeRegistration> {
+    let mut registrations: Vec<_> = registry.iter().collect();
+    registrations.sort_by(|a, b| {
+        a.type_info()
+            .type_path_table()
+            .path()
+            .cmp(b.type_info().type_path_table().path())
+    });
+    registrations
 }
 
 /// Public entry point for "load this specific `.jsn` file into the
@@ -1419,10 +1653,9 @@ pub fn load_inline_assets(
             let handle = if type_path == "bevy_image::image::Image" {
                 if linear_image_names.contains(name) {
                     asset_server
-                        .load_with_settings::<Image, ImageLoaderSettings>(
-                            &asset_path,
-                            |s: &mut ImageLoaderSettings| s.is_srgb = false,
-                        )
+                        .load_builder()
+                        .with_settings(|s: &mut ImageLoaderSettings| s.is_srgb = false)
+                        .load::<Image>(&asset_path)
                         .untyped()
                 } else {
                     asset_server.load::<Image>(&asset_path).untyped()
@@ -1637,8 +1870,9 @@ fn on_new_scene_save(
         if world.remove_resource::<PendingNewScene>().is_none() {
             return;
         }
-        save_scene(world);
-        do_new_scene(world);
+        if save_scene(world) {
+            do_new_scene(world);
+        }
     });
 }
 
@@ -1692,31 +1926,107 @@ fn collect_scene_entities_from_set(
     world: &mut World,
     roots_query: &mut ScenePersistableRootsQuery,
 ) -> Vec<Entity> {
-    let roots: Vec<Entity> = roots_query
+    let candidates: HashSet<Entity> = roots_query
         .iter(world)
         .filter(|e| !editor_set.contains(e))
         .collect();
+    let mut roots: Vec<Entity> = candidates
+        .iter()
+        .copied()
+        .filter(|&entity| !has_scene_candidate_ancestor(world, entity, &candidates))
+        .collect();
+    roots.sort_by_key(|&entity| scene_entity_sort_key(world, entity));
 
-    // Expand to include all descendants
-    let mut scene_set = HashSet::new();
-    let mut stack = roots;
-    while let Some(entity) = stack.pop() {
-        if !scene_set.insert(entity) {
-            continue;
-        }
-        if let Some(children) = world.get::<Children>(entity) {
-            for child in children.iter() {
-                if world.get::<EditorHidden>(child).is_none()
-                    && world.get::<NonSerializable>(child).is_none()
-                    && world.get::<crate::SkipSerialization>(child).is_none()
-                {
-                    stack.push(child);
-                }
-            }
-        }
+    let mut scene = Vec::new();
+    let mut seen = HashSet::new();
+    for root in roots {
+        push_scene_entity_canonical(world, root, &mut seen, &mut scene);
     }
 
-    scene_set.into_iter().collect()
+    scene
+}
+
+fn has_scene_candidate_ancestor(
+    world: &World,
+    entity: Entity,
+    candidates: &HashSet<Entity>,
+) -> bool {
+    let mut seen = HashSet::new();
+    let mut current = world
+        .get::<ChildOf>(entity)
+        .map(|child_of| child_of.parent());
+    while let Some(parent) = current {
+        if !seen.insert(parent) {
+            return false;
+        }
+        if candidates.contains(&parent) {
+            return true;
+        }
+        current = world
+            .get::<ChildOf>(parent)
+            .map(|child_of| child_of.parent());
+    }
+    false
+}
+
+fn push_scene_entity_canonical(
+    world: &World,
+    entity: Entity,
+    seen: &mut HashSet<Entity>,
+    scene: &mut Vec<Entity>,
+) {
+    if !seen.insert(entity) {
+        return;
+    }
+    scene.push(entity);
+
+    let Some(children) = world.get::<Children>(entity) else {
+        return;
+    };
+    let mut serializable_children: Vec<Entity> = children
+        .iter()
+        .filter(|&child| {
+            world.get::<EditorHidden>(child).is_none()
+                && world.get::<NonSerializable>(child).is_none()
+                && world.get::<crate::SkipSerialization>(child).is_none()
+        })
+        .collect();
+    serializable_children.sort_by_key(|&child| scene_entity_sort_key(world, child));
+    for child in serializable_children {
+        push_scene_entity_canonical(world, child, seen, scene);
+    }
+}
+
+fn scene_entity_sort_key(world: &World, entity: Entity) -> (u8, String, String, u64) {
+    let name = scene_entity_name(world, entity);
+    if let Some(stable_id) = world.get::<crate::draw_brush::BrushStableId>(entity) {
+        return (0, format!("{:020}", stable_id.0), name, entity.to_bits());
+    }
+    (1, scene_entity_path(world, entity), name, entity.to_bits())
+}
+
+fn scene_entity_path(world: &World, entity: Entity) -> String {
+    let mut parts = Vec::new();
+    let mut seen = HashSet::new();
+    let mut current = Some(entity);
+    while let Some(entity) = current {
+        if !seen.insert(entity) {
+            break;
+        }
+        parts.push(scene_entity_name(world, entity));
+        current = world
+            .get::<ChildOf>(entity)
+            .map(|child_of| child_of.parent());
+    }
+    parts.reverse();
+    parts.join("/")
+}
+
+fn scene_entity_name(world: &World, entity: Entity) -> String {
+    world
+        .get::<Name>(entity)
+        .map(|name| name.as_str().to_owned())
+        .unwrap_or_default()
 }
 
 /// Collect every editor entity: each `EditorEntity` root and its
@@ -2142,7 +2452,7 @@ pub fn register_entity_in_ast(world: &mut World, entity: Entity) {
     let processor = AstSerializerProcessor;
     let entity_ref = world.entity(entity);
     let mut components = HashMap::new();
-    for registration in registry.iter() {
+    for registration in sorted_type_registrations(&registry) {
         if skip_ids.contains(&registration.type_id()) {
             continue;
         }
@@ -2273,5 +2583,39 @@ mod tests {
             !scene_entities.contains(&helper_root),
             "root entities tagged SkipSerialization must NOT appear in saved scene",
         );
+    }
+
+    #[test]
+    fn scene_entities_are_collected_in_canonical_parent_first_order() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+
+        let root_z = app
+            .world_mut()
+            .spawn((Name::new("RootZ"), Transform::default()))
+            .id();
+        let root_a = app
+            .world_mut()
+            .spawn((Name::new("RootA"), Transform::default()))
+            .id();
+        let child_b = app
+            .world_mut()
+            .spawn((Name::new("ChildB"), Transform::default(), ChildOf(root_a)))
+            .id();
+        let child_a = app
+            .world_mut()
+            .spawn((Name::new("ChildA"), Transform::default(), ChildOf(root_a)))
+            .id();
+
+        let editor_set = app
+            .world_mut()
+            .run_system_cached(collect_editor_entities)
+            .expect("collect_editor_entities runs cleanly");
+        let scene_entities = app
+            .world_mut()
+            .run_system_cached_with(collect_scene_entities_from_set, editor_set)
+            .expect("collect_scene_entities_from_set runs cleanly");
+
+        assert_eq!(scene_entities, vec![root_a, child_a, child_b, root_z]);
     }
 }

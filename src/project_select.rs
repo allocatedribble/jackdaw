@@ -2665,8 +2665,11 @@ pub(crate) fn do_handoff(world: &mut World, bin: &Path, project_root: &Path) {
     let has_scene_path = world
         .get_resource::<scene_io::SceneFilePath>()
         .is_some_and(|p| p.path.is_some());
-    if has_scene_path {
-        scene_io::save_scene(world);
+    if has_scene_path && !scene_io::save_scene(world) {
+        warn!("Static editor handoff aborted because scene save failed");
+        world.resource_mut::<NewProjectState>().status =
+            Some("Scene save failed; handoff cancelled.".to_string());
+        return;
     }
 
     // Touch the project in the launcher's recents list so it

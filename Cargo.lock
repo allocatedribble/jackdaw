@@ -4620,6 +4620,7 @@ dependencies = [
  "serde",
  "serde_json",
  "test_fixture_extension",
+ "windows-sys 0.61.2",
  "winit",
 ]
 
