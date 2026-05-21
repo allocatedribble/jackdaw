@@ -35,7 +35,8 @@ impl Plugin for WorkspaceDropdownPlugin {
             .add_observer(on_workspace_changed_close_popover)
             .add_systems(
                 Update,
-                (update_trigger_label, close_popover_on_outside_click),
+                (update_trigger_label, close_popover_on_outside_click)
+                    .run_if(in_state(crate::AppState::Editor)),
             );
     }
 }

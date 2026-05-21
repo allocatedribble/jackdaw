@@ -289,13 +289,20 @@ impl Plugin for BrushPlugin {
                     mesh::regenerate_brush_meshes,
                     ApplyDeferred,
                     mesh::ensure_brush_face_materials,
+                )
+                    .chain()
+                    .after(crate::EditorInteractionSystems)
+                    .run_if(in_state(crate::AppState::Editor)),
+            )
+            .add_systems(
+                PostUpdate,
+                (
                     gizmo_overlay::draw_brush_edit_gizmos,
                     gizmo_overlay::draw_loop_cut_preview,
                     knife_mode::draw_knife_overlay,
                 )
                     .chain()
-                    .after(crate::EditorInteractionSystems)
-                    .run_if(in_state(crate::AppState::Editor)),
+                    .in_set(crate::JackdawDrawSystems),
             )
             .add_systems(
                 Update,

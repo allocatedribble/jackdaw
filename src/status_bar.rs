@@ -299,12 +299,54 @@ fn handle_status_bar_click(
 
 /// System to update the scene stats text in the hierarchy panel footer.
 pub fn update_scene_stats(
-    scene_entities: Query<Entity, (With<Transform>, Without<EditorEntity>)>,
-    meshes: Query<(), (With<Mesh3d>, Without<EditorEntity>)>,
-    point_lights: Query<(), (With<PointLight>, Without<EditorEntity>)>,
-    dir_lights: Query<(), (With<DirectionalLight>, Without<EditorEntity>)>,
-    spot_lights: Query<(), (With<SpotLight>, Without<EditorEntity>)>,
-    cameras: Query<(), (With<Camera3d>, Without<EditorEntity>)>,
+    scene_entities: Query<
+        Entity,
+        (
+            With<Transform>,
+            Without<EditorEntity>,
+            Without<crate::EditorHidden>,
+        ),
+    >,
+    meshes: Query<
+        (),
+        (
+            With<Mesh3d>,
+            Without<EditorEntity>,
+            Without<crate::EditorHidden>,
+        ),
+    >,
+    point_lights: Query<
+        (),
+        (
+            With<PointLight>,
+            Without<EditorEntity>,
+            Without<crate::EditorHidden>,
+        ),
+    >,
+    dir_lights: Query<
+        (),
+        (
+            With<DirectionalLight>,
+            Without<EditorEntity>,
+            Without<crate::EditorHidden>,
+        ),
+    >,
+    spot_lights: Query<
+        (),
+        (
+            With<SpotLight>,
+            Without<EditorEntity>,
+            Without<crate::EditorHidden>,
+        ),
+    >,
+    cameras: Query<
+        (),
+        (
+            With<Camera3d>,
+            Without<EditorEntity>,
+            Without<crate::EditorHidden>,
+        ),
+    >,
     mut text_query: Query<&mut Text, With<SceneStatsText>>,
 ) {
     let Ok(mut text) = text_query.single_mut() else {

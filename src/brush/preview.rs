@@ -35,8 +35,10 @@ pub struct PreviewPlugin;
 
 impl Plugin for PreviewPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ActivePreview>()
-            .add_systems(Update, update_preview_mesh);
+        app.init_resource::<ActivePreview>().add_systems(
+            Update,
+            update_preview_mesh.run_if(in_state(crate::AppState::Editor)),
+        );
     }
 }
 

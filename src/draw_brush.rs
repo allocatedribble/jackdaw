@@ -785,7 +785,10 @@ impl Plugin for DrawBrushPlugin {
         // TODO: Move *all* of this into the `extension` method and turn systems into ops on the way.
         app.register_type::<BrushStableId>()
             .init_resource::<StableIdCounter>()
-            .add_systems(Update, assign_missing_brush_stable_ids)
+            .add_systems(
+                Update,
+                assign_missing_brush_stable_ids.run_if(in_state(crate::AppState::Editor)),
+            )
             .init_gizmo_group::<DrawBrushGizmoGroup>()
             .add_systems(Startup, configure_draw_brush_gizmos)
             .add_systems(
@@ -796,11 +799,13 @@ impl Plugin for DrawBrushPlugin {
             )
             .add_systems(
                 Update,
-                (
-                    draw_brush_preview.after(draw_brush_confirm),
-                    manage_draw_preview_mesh.after(crate::brush::mesh::regenerate_brush_meshes),
-                )
+                manage_draw_preview_mesh
+                    .after(crate::brush::mesh::regenerate_brush_meshes)
                     .run_if(in_state(crate::AppState::Editor)),
+            )
+            .add_systems(
+                PostUpdate,
+                draw_brush_preview.in_set(crate::JackdawDrawSystems),
             )
             .add_observer(dispatch_start_add_append)
             .add_observer(dispatch_start_cut);

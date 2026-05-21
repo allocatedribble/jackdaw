@@ -334,7 +334,7 @@ pub(crate) fn view_frame_selected(
     _: In<OperatorParameters>,
     active: Res<ActiveViewport>,
     selection: Res<Selection>,
-    selected_transforms: Query<&GlobalTransform, With<Selected>>,
+    selected_transforms: Query<&GlobalTransform, (With<Selected>, Without<crate::EditorHidden>)>,
     mut cameras: Query<&mut Transform, With<MainViewportCamera>>,
 ) -> OperatorResult {
     let Some(camera_entity) = active.camera else {
@@ -371,7 +371,14 @@ pub(crate) fn view_frame_selected(
 pub(crate) fn view_frame_all(
     _: In<OperatorParameters>,
     active: Res<ActiveViewport>,
-    scene_entities: Query<&GlobalTransform, (With<Name>, Without<crate::EditorEntity>)>,
+    scene_entities: Query<
+        &GlobalTransform,
+        (
+            With<Name>,
+            Without<crate::EditorEntity>,
+            Without<crate::EditorHidden>,
+        ),
+    >,
     mut cameras: Query<&mut Transform, With<MainViewportCamera>>,
 ) -> OperatorResult {
     let Some(camera_entity) = active.camera else {

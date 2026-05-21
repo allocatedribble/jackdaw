@@ -31,9 +31,11 @@ impl Plugin for AlignmentGuidesPlugin {
             .add_systems(Startup, configure_alignment_gizmos)
             .add_systems(
                 Update,
-                (cache_reference_coords, draw_alignment_guides)
-                    .chain()
-                    .run_if(in_state(crate::AppState::Editor)),
+                cache_reference_coords.run_if(in_state(crate::AppState::Editor)),
+            )
+            .add_systems(
+                PostUpdate,
+                draw_alignment_guides.in_set(crate::JackdawDrawSystems),
             );
     }
 }

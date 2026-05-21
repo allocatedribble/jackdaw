@@ -242,7 +242,7 @@ pub struct JsnAssets(pub HashMap<String, HashMap<String, serde_json::Value>>);
 impl Serialize for JsnAssets {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut entries: Vec<_> = self.0.iter().collect();
-        entries.sort_by(|(a, _), (b, _)| a.cmp(b));
+        entries.sort_by_key(|(key, _)| *key);
 
         let mut map = serializer.serialize_map(Some(entries.len()))?;
         for (type_path, named_entries) in entries {
@@ -275,7 +275,7 @@ fn serialize_string_value_map<S: Serializer>(
     serializer: S,
 ) -> Result<S::Ok, S::Error> {
     let mut entries: Vec<_> = map.iter().collect();
-    entries.sort_by(|(a, _), (b, _)| a.cmp(b));
+    entries.sort_by_key(|(key, _)| *key);
 
     let mut out = serializer.serialize_map(Some(entries.len()))?;
     for (key, value) in entries {

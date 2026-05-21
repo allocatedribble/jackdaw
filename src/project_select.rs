@@ -59,7 +59,8 @@ impl Plugin for ProjectSelectPlugin {
                     poll_new_project_tasks,
                     refresh_build_progress_snapshot,
                     drive_static_editor_build,
-                ),
+                )
+                    .run_if(not(in_state(AppState::Inactive))),
             )
             // The dylib-install step MUST run outside of `Update`'s
             // `schedule_scope`. The game's `GameApp::add_systems(Update, ...)`

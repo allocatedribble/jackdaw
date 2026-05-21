@@ -32,7 +32,8 @@ impl Plugin for ScenesPlugin {
                 ui::update_scene_tab_label_abbreviation,
                 ui::show_scene_tab_close_on_hover,
                 intercept_window_close,
-            ),
+            )
+                .run_if(in_state(crate::AppState::Editor)),
         );
         app.add_observer(ui::on_scene_tab_context_action);
     }

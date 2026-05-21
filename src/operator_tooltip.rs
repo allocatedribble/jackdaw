@@ -29,8 +29,10 @@ pub struct OperatorTooltipPlugin;
 
 impl Plugin for OperatorTooltipPlugin {
     fn build(&self, app: &mut App) {
-        app.add_observer(auto_attach_button_tooltip)
-            .add_systems(Update, refresh_keybind_on_bindings_change);
+        app.add_observer(auto_attach_button_tooltip).add_systems(
+            Update,
+            refresh_keybind_on_bindings_change.run_if(in_state(crate::AppState::Editor)),
+        );
     }
 }
 

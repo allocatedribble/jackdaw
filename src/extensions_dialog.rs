@@ -31,8 +31,11 @@ impl Plugin for ExtensionsDialogPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ExtensionsDialogOpen>()
             .init_resource::<InstallStatus>()
-            .add_systems(Update, populate_extensions_dialog)
-            .add_systems(Update, poll_install_task)
+            .add_systems(
+                Update,
+                (populate_extensions_dialog, poll_install_task)
+                    .run_if(in_state(crate::AppState::Editor)),
+            )
             .add_observer(on_extension_checkbox_commit)
             .add_observer(on_install_button_click)
             .add_observer(on_dialog_closed);

@@ -43,8 +43,7 @@ impl Plugin for ViewportOverlaysPlugin {
                     draw_camera_gizmo,
                     draw_empty_entity_marker,
                 )
-                    .after(bevy::camera::visibility::VisibilitySystems::VisibilityPropagate)
-                    .run_if(in_state(crate::AppState::Editor)),
+                    .in_set(JackdawDrawSystems),
             )
             .add_systems(
                 PostUpdate,

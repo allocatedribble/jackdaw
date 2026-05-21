@@ -97,12 +97,7 @@ impl Plugin for TransformGizmosPlugin {
                     .chain()
                     .in_set(crate::EditorInteractionSystems),
             )
-            .add_systems(
-                Update,
-                draw_gizmos
-                    .after(gizmo_drag_invoke_trigger)
-                    .run_if(in_state(crate::AppState::Editor)),
-            );
+            .add_systems(PostUpdate, draw_gizmos.in_set(crate::JackdawDrawSystems));
     }
 }
 

@@ -1,5 +1,6 @@
 use bevy::{
     app::AppExit,
+    diagnostic::{Diagnostic, DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     feathers::cursor::EntityCursor,
     math::CompassOctant,
     picking::{events::Press as PointerPress, hover::Hovered, pointer::PointerButton},
@@ -136,6 +137,17 @@ pub(crate) struct TitlebarDragRegion;
 
 #[derive(Component)]
 pub(crate) struct WindowResizeRegion(CompassOctant);
+
+#[derive(Component)]
+pub(crate) struct HeaderFpsText;
+
+#[derive(Component)]
+pub(crate) struct HeaderFrameTimeBar(usize);
+
+const HEADER_FRAME_TIME_BARS: usize = 18;
+const HEADER_FRAME_TIME_BAR_HEIGHT: f32 = 14.0;
+const HEADER_FRAME_TIME_TARGET_MS: f64 = 1000.0 / 60.0;
+const HEADER_FRAME_TIME_WARN_MS: f64 = 1000.0 / 30.0;
 
 pub fn editor_layout(
     icon_font: &IconFont,
@@ -344,6 +356,7 @@ fn window_header(icon_font: Handle<Font>, editor_font: Handle<Font>) -> impl Bun
                     ..Default::default()
                 },
                 children![
+                    header_diagnostics(),
                     crate::workspace_dropdown::workspace_dropdown_trigger(
                         editor_font,
                         icon_font.clone(),
@@ -354,6 +367,186 @@ fn window_header(icon_font: Handle<Font>, editor_font: Handle<Font>) -> impl Bun
             ),
         ],
     )
+}
+
+fn header_diagnostics() -> impl Bundle {
+    (
+        EditorEntity,
+        Node {
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Center,
+            height: px(22.0),
+            padding: UiRect::axes(px(7.0), px(3.0)),
+            column_gap: px(6.0),
+            border: UiRect::all(px(1.0)),
+            border_radius: BorderRadius::all(px(tokens::BORDER_RADIUS_LG)),
+            flex_shrink: 0.0,
+            ..Default::default()
+        },
+        BackgroundColor(tokens::HEADER_CONTROL_BG),
+        BorderColor::all(tokens::HEADER_CONTROL_BORDER),
+        children![
+            (
+                HeaderFpsText,
+                Text::new(format_header_fps(None)),
+                TextFont {
+                    font_size: tokens::FONT_SM.into(),
+                    ..Default::default()
+                },
+                TextColor(tokens::HEADER_CONTROL_LABEL),
+                Pickable::IGNORE,
+            ),
+            header_frame_time_histogram(),
+        ],
+    )
+}
+
+fn header_frame_time_histogram() -> impl Bundle {
+    (
+        EditorEntity,
+        Node {
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::End,
+            width: px(43.0),
+            height: px(HEADER_FRAME_TIME_BAR_HEIGHT),
+            column_gap: px(1.0),
+            flex_shrink: 0.0,
+            ..Default::default()
+        },
+        Pickable::IGNORE,
+        children![
+            header_frame_time_bar(0),
+            header_frame_time_bar(1),
+            header_frame_time_bar(2),
+            header_frame_time_bar(3),
+            header_frame_time_bar(4),
+            header_frame_time_bar(5),
+            header_frame_time_bar(6),
+            header_frame_time_bar(7),
+            header_frame_time_bar(8),
+            header_frame_time_bar(9),
+            header_frame_time_bar(10),
+            header_frame_time_bar(11),
+            header_frame_time_bar(12),
+            header_frame_time_bar(13),
+            header_frame_time_bar(14),
+            header_frame_time_bar(15),
+            header_frame_time_bar(16),
+            header_frame_time_bar(17),
+        ],
+    )
+}
+
+fn header_frame_time_bar(index: usize) -> impl Bundle {
+    (
+        HeaderFrameTimeBar(index),
+        EditorEntity,
+        Node {
+            width: px(1.5),
+            height: px(2.0),
+            border_radius: BorderRadius::all(px(1.0)),
+            ..Default::default()
+        },
+        BackgroundColor(tokens::TEXT_SECONDARY.with_alpha(0.35)),
+        Pickable::IGNORE,
+    )
+}
+
+pub(crate) fn update_header_diagnostics(
+    diagnostics: Option<Res<DiagnosticsStore>>,
+    mut fps_texts: Query<&mut Text, With<HeaderFpsText>>,
+    mut bars: Query<(&HeaderFrameTimeBar, &mut Node, &mut BackgroundColor)>,
+) {
+    let fps = diagnostics
+        .as_deref()
+        .and_then(|store| store.get(&FrameTimeDiagnosticsPlugin::FPS))
+        .and_then(Diagnostic::smoothed);
+    let fps_text = format_header_fps(fps);
+    for mut text in &mut fps_texts {
+        if text.0 != fps_text {
+            text.0 = fps_text.clone();
+        }
+    }
+
+    let mut samples = [None; HEADER_FRAME_TIME_BARS];
+    let mut count = 0usize;
+    if let Some(frame_time) = diagnostics
+        .as_deref()
+        .and_then(|store| store.get(&FrameTimeDiagnosticsPlugin::FRAME_TIME))
+    {
+        for value in frame_time
+            .values()
+            .copied()
+            .filter(|value| value.is_finite())
+        {
+            samples[count % HEADER_FRAME_TIME_BARS] = Some(value);
+            count += 1;
+        }
+    }
+
+    let visible_count = count.min(HEADER_FRAME_TIME_BARS);
+    let first_sample = count.saturating_sub(visible_count);
+    for (bar, mut node, mut color) in &mut bars {
+        let sample = (bar.0 < visible_count)
+            .then(|| samples[(first_sample + bar.0) % HEADER_FRAME_TIME_BARS])
+            .flatten();
+        node.height = px(header_frame_time_bar_height(sample));
+        color.0 = header_frame_time_bar_color(sample);
+    }
+}
+
+fn format_header_fps(fps: Option<f64>) -> String {
+    match fps.filter(|fps| fps.is_finite() && *fps >= 0.0) {
+        Some(fps) => format!("{fps:.0} fps"),
+        None => "-- fps".to_string(),
+    }
+}
+
+fn header_frame_time_bar_height(frame_time_ms: Option<f64>) -> f32 {
+    frame_time_ms
+        .filter(|value| value.is_finite() && *value >= 0.0)
+        .map(|value| {
+            let normalized = (value / HEADER_FRAME_TIME_WARN_MS).clamp(0.08, 1.0) as f32;
+            normalized * HEADER_FRAME_TIME_BAR_HEIGHT
+        })
+        .unwrap_or(2.0)
+}
+
+fn header_frame_time_bar_color(frame_time_ms: Option<f64>) -> Color {
+    match frame_time_ms.filter(|value| value.is_finite() && *value >= 0.0) {
+        Some(value) if value <= HEADER_FRAME_TIME_TARGET_MS => tokens::CATEGORY_ENTITY,
+        Some(value) if value <= HEADER_FRAME_TIME_WARN_MS => tokens::DOC_TAB_TOOL_ACCENT,
+        Some(_) => Color::srgb(0.84, 0.24, 0.28),
+        None => tokens::TEXT_SECONDARY.with_alpha(0.35),
+    }
+}
+
+#[cfg(test)]
+mod header_diagnostics_tests {
+    use super::*;
+
+    #[test]
+    fn fps_label_rounds_finite_values() {
+        assert_eq!(format_header_fps(Some(59.6)), "60 fps");
+        assert_eq!(format_header_fps(Some(144.4)), "144 fps");
+    }
+
+    #[test]
+    fn fps_label_rejects_missing_or_invalid_values() {
+        assert_eq!(format_header_fps(None), "-- fps");
+        assert_eq!(format_header_fps(Some(f64::NAN)), "-- fps");
+        assert_eq!(format_header_fps(Some(-1.0)), "-- fps");
+    }
+
+    #[test]
+    fn frame_time_bar_height_tracks_target_to_warning_range() {
+        let target = header_frame_time_bar_height(Some(HEADER_FRAME_TIME_TARGET_MS));
+        let warning = header_frame_time_bar_height(Some(HEADER_FRAME_TIME_WARN_MS));
+        assert!(target > 2.0);
+        assert!(warning > target);
+        assert_eq!(warning, HEADER_FRAME_TIME_BAR_HEIGHT);
+        assert_eq!(header_frame_time_bar_height(None), 2.0);
+    }
 }
 
 /// Play / Pause / Stop transport pill. Clicking a button triggers

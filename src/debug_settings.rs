@@ -30,24 +30,23 @@ pub struct DebugSettingsPlugin;
 
 impl Plugin for DebugSettingsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<DebugPanelState>()
-            .add_systems(
-                Update,
-                (
-                    poll_discovery_task,
-                    start_discovery_on_connect,
-                    poll_schema_tasks,
-                    start_schema_fetches,
-                    poll_values_task,
-                    start_values_poll,
-                    poll_mutation_task,
-                    flush_pending_mutations,
-                    build_or_rebuild_panel,
-                    handle_widget_clicks,
-                )
-                    .chain()
-                    .run_if(in_state(crate::AppState::Editor)),
-            );
+        app.init_resource::<DebugPanelState>().add_systems(
+            Update,
+            (
+                poll_discovery_task,
+                start_discovery_on_connect,
+                poll_schema_tasks,
+                start_schema_fetches,
+                poll_values_task,
+                start_values_poll,
+                poll_mutation_task,
+                flush_pending_mutations,
+                build_or_rebuild_panel,
+                handle_widget_clicks,
+            )
+                .chain()
+                .run_if(in_state(crate::AppState::Editor)),
+        );
     }
 }
 
@@ -322,37 +321,37 @@ fn flush_pending_mutations(
         return;
     }
 
-    // Pull one resource's pending changes; the rest follow on subsequent ticks.
-    let (type_path, paths) = {
-        let key = state
-            .pending_mutations
-            .keys()
-            .next()
-            .cloned()
-            .expect("non-empty checked above");
-        let paths = state.pending_mutations.remove(&key).unwrap();
-        (key, paths)
-    };
-
-    for (field_path, value) in paths {
-        let params = serde_json::json!({
-            "resource": &type_path,
-            "path": field_path,
-            "value": value,
-        });
-        let task = brp_request_value(&manager.endpoint, "world.mutate_resources", Some(params));
-        // Only one outstanding mutation task at a time keeps ordering sane.
-        // The remaining field updates for this resource land in subsequent
-        // ticks once this one acks.
-        commands.insert_resource(MutationTask(task));
+    let Some(type_path) = state.pending_mutations.keys().next().cloned() else {
         return;
+    };
+    let Some((field_path, value, finished_resource)) = state
+        .pending_mutations
+        .get_mut(&type_path)
+        .and_then(|paths| {
+            (!paths.is_empty()).then(|| {
+                let (field_path, value) = paths.remove(0);
+                (field_path, value, paths.is_empty())
+            })
+        })
+    else {
+        state.pending_mutations.remove(&type_path);
+        return;
+    };
+    if finished_resource {
+        state.pending_mutations.remove(&type_path);
     }
+
+    let params = serde_json::json!({
+        "resource": &type_path,
+        "path": field_path,
+        "value": value,
+    });
+    let task = brp_request_value(&manager.endpoint, "world.mutate_resources", Some(params));
+    // Only one outstanding mutation task at a time keeps ordering sane.
+    commands.insert_resource(MutationTask(task));
 }
 
-fn poll_mutation_task(
-    mut commands: Commands,
-    task: Option<ResMut<MutationTask>>,
-) {
+fn poll_mutation_task(mut commands: Commands, task: Option<ResMut<MutationTask>>) {
     let Some(mut task) = task else { return };
     let Some(result) = future::block_on(future::poll_once(&mut task.0)) else {
         return;
@@ -377,8 +376,13 @@ struct WidgetButton {
 
 #[derive(Clone)]
 enum WidgetKind {
-    Bool { current: bool },
-    Enum { current: String, variants: Vec<String> },
+    Bool {
+        current: bool,
+    },
+    Enum {
+        current: String,
+        variants: Vec<String>,
+    },
 }
 
 fn build_or_rebuild_panel(
@@ -472,10 +476,7 @@ fn render_fields(
         } else {
             format!("{prefix}.{name}")
         };
-        let field_value = value
-            .get(name)
-            .cloned()
-            .unwrap_or(serde_json::Value::Null);
+        let field_value = value.get(name).cloned().unwrap_or(serde_json::Value::Null);
         if field_schema
             .get("properties")
             .and_then(|p| p.as_object())
@@ -487,9 +488,24 @@ fn render_fields(
                 TextFont::from_font_size(tokens::FONT_SM),
                 TextColor(tokens::TEXT_SECONDARY),
             ));
-            render_fields(parent, type_path, &field_path, field_schema, &field_value, read_only);
+            render_fields(
+                parent,
+                type_path,
+                &field_path,
+                field_schema,
+                &field_value,
+                read_only,
+            );
         } else {
-            spawn_field_row(parent, type_path, &field_path, name, field_schema, &field_value, read_only);
+            spawn_field_row(
+                parent,
+                type_path,
+                &field_path,
+                name,
+                field_schema,
+                &field_value,
+                read_only,
+            );
         }
     }
 }
@@ -536,10 +552,7 @@ fn spawn_field_row(
                 Some(WidgetKind::Bool { current: b }),
             )
         }
-        ("integer", v, _) => (
-            format!("  {label}: {}", v.as_i64().unwrap_or(0)),
-            None,
-        ),
+        ("integer", v, _) => (format!("  {label}: {}", v.as_i64().unwrap_or(0)), None),
         ("number", v, _) => {
             let n = v.as_f64().unwrap_or(0.0);
             let formatted = if n.fract() == 0.0 && n.abs() < 1e9 {
@@ -549,14 +562,8 @@ fn spawn_field_row(
             };
             (format!("  {label}: {formatted}"), None)
         }
-        ("string", v, _) => (
-            format!("  {label}: {}", v.as_str().unwrap_or("")),
-            None,
-        ),
-        _ => (
-            format!("  {label}: {}", compact_json(value)),
-            None,
-        ),
+        ("string", v, _) => (format!("  {label}: {}", v.as_str().unwrap_or("")), None),
+        _ => (format!("  {label}: {}", compact_json(value)), None),
     };
 
     let interactive = !read_only && widget_kind.is_some();
@@ -637,7 +644,12 @@ fn handle_widget_clicks(
                 let next = !current;
                 // Optimistic local update so the panel redraws immediately
                 // with the new value rather than waiting for the 500ms poll.
-                set_local_value(&mut state, &widget.type_path, &widget.field_path, serde_json::Value::Bool(next));
+                set_local_value(
+                    &mut state,
+                    &widget.type_path,
+                    &widget.field_path,
+                    serde_json::Value::Bool(next),
+                );
                 queue_mutation(
                     &mut state,
                     now,

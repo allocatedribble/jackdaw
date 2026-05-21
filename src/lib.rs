@@ -168,10 +168,21 @@ pub fn no_dialog_open(dialogs: Query<(), With<EditorDialog>>) -> bool {
 
 #[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum AppState {
+    /// No Jackdaw project picker or editor world is resident. Embedded
+    /// hosts use this while the editor is closed so Jackdaw's
+    /// state-gated systems have nothing to do.
+    Inactive,
     #[default]
     ProjectSelect,
     Editor,
 }
+
+/// Embedded-host mode for editor teardown. When present, exiting
+/// [`AppState::Editor`] removes Jackdaw-owned/editor-authored state
+/// without treating the host app's named gameplay entities as an
+/// editor scene to clear.
+#[derive(Resource, Default)]
+pub struct PreserveHostWorldOnEditorExit;
 
 #[derive(Component, Default)]
 pub struct EditorEntity;
@@ -289,6 +300,9 @@ impl Plugin for EditorCorePlugin {
             "EditorCorePlugin requires EnhancedInputPlugin first; \
              add `EnhancedInputPlugin` in main.rs before EditorPlugins."
         );
+        if !app.is_plugin_added::<bevy::diagnostic::FrameTimeDiagnosticsPlugin>() {
+            app.add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin::default());
+        }
         app.init_state::<AppState>()
             .add_plugins((FeathersPlugins, EditorFeathersPlugin));
         app.add_plugins((
@@ -366,6 +380,10 @@ impl Plugin for EditorCorePlugin {
                 .after(bevy::camera::visibility::VisibilitySystems::VisibilityPropagate)
                 .run_if(in_state(crate::AppState::Editor)),
         )
+        .configure_sets(
+            PostUpdate,
+            jackdaw_avian_integration::PhysicsOverlaySystems.in_set(JackdawDrawSystems),
+        )
         .insert_resource(UiTheme(create_dark_theme()))
         .init_resource::<layout::WindowDecorationState>()
         .init_resource::<layout::ActiveDocument>()
@@ -400,6 +418,7 @@ impl Plugin for EditorCorePlugin {
             Update,
             (
                 send_scroll_events,
+                layout::update_header_diagnostics,
                 layout::update_toolbar_button_variants,
                 layout::update_active_document_display,
                 layout::update_tab_strip_highlights,
@@ -413,7 +432,10 @@ impl Plugin for EditorCorePlugin {
             )
                 .run_if(in_state(AppState::Editor)),
         )
-        .add_systems(Update, keybind_focus::disable_keyboard_input_when_typing)
+        .add_systems(
+            Update,
+            keybind_focus::disable_keyboard_input_when_typing.run_if(in_state(AppState::Editor)),
+        )
         .add_observer(on_workspace_changed)
         .add_observer(on_scroll)
         .add_observer(handle_menu_action)
@@ -2327,61 +2349,178 @@ where
 }
 
 fn cleanup_editor(world: &mut World) {
-    // 1. Clear scene entities
-    scene_io::clear_scene_entities(world);
-
-    // 2. Despawn all EditorEntity entities
-    let editor_entities: Vec<Entity> = world
-        .query_filtered::<Entity, With<EditorEntity>>()
-        .iter(world)
-        .collect();
-    for entity in editor_entities {
-        if let Ok(ec) = world.get_entity_mut(entity) {
-            ec.despawn();
-        }
+    if world.contains_resource::<PreserveHostWorldOnEditorExit>() {
+        clear_editor_authored_entities(world);
+    } else {
+        scene_io::clear_scene_entities(world);
     }
 
-    // 3. Despawn Camera2d entities (editor UI camera)
-    let cameras: Vec<Entity> = world
-        .query_filtered::<Entity, With<Camera2d>>()
-        .iter(world)
-        .collect();
-    for entity in cameras {
-        if let Ok(ec) = world.get_entity_mut(entity) {
-            ec.despawn();
-        }
+    despawn_entities::<EditorEntity>(world);
+
+    if !world.contains_resource::<PreserveHostWorldOnEditorExit>() {
+        // Standalone project-select teardown owns every 2D camera on
+        // the Jackdaw screen. Embedded hosts may have their own 2D
+        // cameras, so PreserveHostWorldOnEditorExit relies on the
+        // EditorEntity pass above instead.
+        despawn_entities::<Camera2d>(world);
     }
 
-    // 4. Despawn any open dialogs
-    let dialogs: Vec<Entity> = world
-        .query_filtered::<Entity, With<jackdaw_feathers::dialog::EditorDialog>>()
-        .iter(world)
-        .collect();
-    for entity in dialogs {
-        if let Ok(ec) = world.get_entity_mut(entity) {
-            ec.despawn();
-        }
+    despawn_entities::<jackdaw_feathers::dialog::EditorDialog>(world);
+    reset_editor_resources(world);
+}
+
+fn clear_editor_authored_entities(world: &mut World) {
+    let roots: Vec<Entity> = world
+        .get_resource::<jackdaw_jsn::SceneJsnAst>()
+        .map(|ast| ast.ecs_to_jsn.keys().copied().collect())
+        .unwrap_or_default();
+    if let Some(mut ast) = world.get_resource_mut::<jackdaw_jsn::SceneJsnAst>() {
+        ast.clear();
+    }
+    clear_selection_components(world);
+    if let Err(err) = world.run_system_cached(crate::hierarchy::clear_all_tree_rows) {
+        error!("Failed to clear tree rows: {err}");
+    }
+    if let Some(mut history) = world.get_resource_mut::<commands::CommandHistory>() {
+        history.undo_stack.clear();
+        history.redo_stack.clear();
     }
 
-    // 5. Reset resources
+    let mut stack = roots;
+    let mut entities = bevy::platform::collections::HashSet::<Entity>::default();
+    while let Some(entity) = stack.pop() {
+        if !entities.insert(entity) {
+            continue;
+        }
+        if let Some(children) = world.get::<Children>(entity) {
+            stack.extend(children.iter());
+        }
+    }
+    for entity in entities {
+        if let Ok(entity) = world.get_entity_mut(entity) {
+            entity.despawn();
+        }
+    }
+}
+
+fn clear_selection_components(world: &mut World) {
+    let selected: Vec<Entity> = world
+        .query_filtered::<Entity, With<selection::Selected>>()
+        .iter(world)
+        .collect();
+    for entity in selected {
+        if let Ok(mut entity) = world.get_entity_mut(entity) {
+            entity.remove::<selection::Selected>();
+        }
+    }
+    if let Some(mut selection) = world.get_resource_mut::<Selection>() {
+        selection.entities.clear();
+    }
+}
+
+fn despawn_entities<T: Component>(world: &mut World) {
+    let entities: Vec<Entity> = world
+        .query_filtered::<Entity, With<T>>()
+        .iter(world)
+        .collect();
+    for entity in entities {
+        if let Ok(entity) = world.get_entity_mut(entity) {
+            entity.despawn();
+        }
+    }
+}
+
+fn reset_editor_resources(world: &mut World) {
     world.insert_resource(scene_io::SceneFilePath::default());
     world.insert_resource(scene_io::SceneDirtyState::default());
     world.insert_resource(Selection::default());
     world.insert_resource(commands::CommandHistory::default());
-
-    // 6. Remove project root
+    world.insert_resource(scenes::Scenes::default());
+    world.resource_mut::<MenuBarDirty>().0 = true;
     world.remove_resource::<project::ProjectRoot>();
 
-    // 7. Reset menu bar state
     let dropdown_to_despawn = {
         let mut menu_state = world.resource_mut::<jackdaw_widgets::menu_bar::MenuBarState>();
         menu_state.open_menu = None;
         menu_state.dropdown_entity.take()
     };
     if let Some(dropdown) = dropdown_to_despawn
-        && let Ok(ec) = world.get_entity_mut(dropdown)
+        && let Ok(entity) = world.get_entity_mut(dropdown)
     {
-        ec.despawn();
+        entity.despawn();
+    }
+}
+
+#[cfg(test)]
+mod embedded_cleanup_tests {
+    use super::*;
+
+    fn cleanup_world() -> World {
+        let mut world = World::new();
+        world.init_resource::<jackdaw_jsn::SceneJsnAst>();
+        world.init_resource::<Selection>();
+        world.init_resource::<commands::CommandHistory>();
+        world.init_resource::<scene_io::SceneFilePath>();
+        world.init_resource::<scene_io::SceneDirtyState>();
+        world.init_resource::<scenes::Scenes>();
+        world.init_resource::<MenuBarDirty>();
+        world.init_resource::<jackdaw_widgets::menu_bar::MenuBarState>();
+        world
+    }
+
+    #[test]
+    fn preserve_host_cleanup_despawns_editor_state_without_host_scene() {
+        let mut world = cleanup_world();
+        world.insert_resource(PreserveHostWorldOnEditorExit);
+        let host = world.spawn(Name::new("Mirage host entity")).id();
+        let selected_host = world
+            .spawn((selection::Selected, Name::new("selected host entity")))
+            .id();
+        world
+            .resource_mut::<Selection>()
+            .entities
+            .push(selected_host);
+        let editor = world
+            .spawn((EditorEntity, Name::new("Jackdaw chrome")))
+            .id();
+        let jsn = world.spawn(Name::new("authored jsn entity")).id();
+        world
+            .resource_mut::<jackdaw_jsn::SceneJsnAst>()
+            .ecs_to_jsn
+            .insert(jsn, 0);
+
+        cleanup_editor(&mut world);
+
+        assert!(
+            world.get_entity(host).is_ok(),
+            "host gameplay entity survives"
+        );
+        assert!(
+            world.get_entity(selected_host).is_ok(),
+            "selected host entity survives"
+        );
+        assert!(
+            world.get::<selection::Selected>(selected_host).is_none(),
+            "embedded cleanup removes stale Selected markers from preserved host entities"
+        );
+        assert!(
+            world.resource::<Selection>().entities.is_empty(),
+            "embedded cleanup clears Selection alongside the marker components"
+        );
+        assert!(
+            world.get_entity(editor).is_err(),
+            "editor entity is despawned"
+        );
+        assert!(
+            world.get_entity(jsn).is_err(),
+            "editor-authored JSN entity is despawned"
+        );
+        assert!(
+            world
+                .resource::<jackdaw_jsn::SceneJsnAst>()
+                .ecs_to_jsn
+                .is_empty()
+        );
     }
 }
 

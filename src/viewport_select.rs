@@ -136,7 +136,14 @@ pub(crate) fn handle_viewport_click(
     mouse: Res<ButtonInput<MouseButton>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     vp: ViewportCursor,
-    scene_entities: Query<(Entity, &GlobalTransform), (Without<EditorEntity>, With<Transform>)>,
+    scene_entities: Query<
+        (Entity, &GlobalTransform),
+        (
+            Without<EditorEntity>,
+            Without<crate::EditorHidden>,
+            With<Transform>,
+        ),
+    >,
     parents: Query<&ChildOf>,
     brush_groups: Query<(), With<BrushGroup>>,
     guards: InteractionGuards,
@@ -456,7 +463,14 @@ pub fn box_select(
     mouse: Res<ButtonInput<MouseButton>>,
     vp: ViewportCursor,
     mut box_state: ResMut<BoxSelectState>,
-    scene_entities: Query<(Entity, &GlobalTransform), (Without<EditorEntity>, With<Name>)>,
+    scene_entities: Query<
+        (Entity, &GlobalTransform),
+        (
+            Without<EditorEntity>,
+            Without<crate::EditorHidden>,
+            With<Name>,
+        ),
+    >,
     mut selection: ResMut<Selection>,
     mut commands: Commands,
     active: ActiveModalQuery,
@@ -572,7 +586,14 @@ fn update_box_select_overlay(
 /// of that group so individual fragments can be selected.
 fn find_selectable_ancestor(
     mut entity: Entity,
-    scene_entities: &Query<(Entity, &GlobalTransform), (Without<EditorEntity>, With<Transform>)>,
+    scene_entities: &Query<
+        (Entity, &GlobalTransform),
+        (
+            Without<EditorEntity>,
+            Without<crate::EditorHidden>,
+            With<Transform>,
+        ),
+    >,
     parents: &Query<&ChildOf>,
     group_edit: &GroupEditState,
     brush_groups: &Query<(), With<BrushGroup>>,

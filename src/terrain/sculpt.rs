@@ -19,10 +19,13 @@ pub(super) fn plugin(app: &mut App) {
             update_terrain_brush_position,
             sculpt_invoke_trigger,
             handle_brush_resize_scroll,
-            draw_terrain_brush_gizmo,
         )
             .chain()
             .run_if(in_state(crate::AppState::Editor)),
+    );
+    app.add_systems(
+        PostUpdate,
+        draw_terrain_brush_gizmo.in_set(crate::JackdawDrawSystems),
     );
 }
 

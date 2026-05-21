@@ -53,11 +53,16 @@ impl Default for PhysicsOverlayConfig {
     }
 }
 
+/// System set for the editor physics overlay draw pass.
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct PhysicsOverlaySystems;
+
 /// Plugin that renders collider wireframes and hierarchy arrows.
 ///
 /// Generic over a `SelectionMarker` component type so callers can wire in
-/// their own selection system. Systems run unconditionally; wrap the plugin
-/// in your own run condition if you need editor-only behavior.
+/// their own selection system. Systems are grouped in
+/// [`PhysicsOverlaySystems`] so hosts can gate them with their editor
+/// visibility policy.
 pub struct PhysicsOverlaysPlugin<S: Component> {
     _marker: PhantomData<S>,
 }
@@ -84,8 +89,8 @@ impl<S: Component> Plugin for PhysicsOverlaysPlugin<S> {
             .init_gizmo_group::<PhysicsGizmos>()
             .add_systems(
                 PostUpdate,
-                // TODO: Use `JackdawDrawSystems` here
                 (draw_collider_gizmos::<S>, draw_hierarchy_arrows::<S>)
+                    .in_set(PhysicsOverlaySystems)
                     .after(bevy::transform::TransformSystems::Propagate),
             );
 

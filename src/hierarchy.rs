@@ -92,7 +92,8 @@ impl Plugin for HierarchyPlugin {
             .add_systems(
                 PostUpdate,
                 rebuild_hierarchy_on_container_added
-                    .after(jackdaw_widgets::tree_view::maintain_tree_index),
+                    .after(jackdaw_widgets::tree_view::maintain_tree_index)
+                    .run_if(in_state(crate::AppState::Editor)),
             )
             .add_observer(handle_inline_rename_commit)
             .add_observer(on_root_entity_added)

@@ -1952,9 +1952,7 @@ fn has_scene_candidate_ancestor(
     candidates: &HashSet<Entity>,
 ) -> bool {
     let mut seen = HashSet::new();
-    let mut current = world
-        .get::<ChildOf>(entity)
-        .map(|child_of| child_of.parent());
+    let mut current = world.get::<ChildOf>(entity).map(ChildOf::parent);
     while let Some(parent) = current {
         if !seen.insert(parent) {
             return false;
@@ -1962,9 +1960,7 @@ fn has_scene_candidate_ancestor(
         if candidates.contains(&parent) {
             return true;
         }
-        current = world
-            .get::<ChildOf>(parent)
-            .map(|child_of| child_of.parent());
+        current = world.get::<ChildOf>(parent).map(ChildOf::parent);
     }
     false
 }
@@ -2014,9 +2010,7 @@ fn scene_entity_path(world: &World, entity: Entity) -> String {
             break;
         }
         parts.push(scene_entity_name(world, entity));
-        current = world
-            .get::<ChildOf>(entity)
-            .map(|child_of| child_of.parent());
+        current = world.get::<ChildOf>(entity).map(ChildOf::parent);
     }
     parts.reverse();
     parts.join("/")
